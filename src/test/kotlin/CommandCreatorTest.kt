@@ -19,9 +19,9 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:2 -c:a:0 copy -map 0:a:1 -c:a:1 copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -38,9 +38,9 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mp4"))
 
         assertEquals(
-            "ffmpeg -i somefile.mp4 -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mp4 -map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -57,9 +57,9 @@ class CommandCreatorTest {
         ).doAction(arrayOf("Some File to convert.mkv"))
 
         assertEquals(
-            "ffmpeg -i Some\\ File\\ to\\ convert.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i Some\\ File\\ to\\ convert.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
-                    "-crf 17 -preset medium Output/Some\\ File\\ to\\ convert.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/Some\\ File\\ to\\ convert.mkv",
             command
         )
     }
@@ -79,10 +79,10 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:2 -c:a:0 copy -map 0:a:3 -c:a:1 copy -map 0:a:2 -c:a:2 ac3 " +
                     "-map 0:a:0 -c:a:3 copy -map 0:a:1 -c:a:4 copy -map 0:a:0 -c:a:5 ac3 " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -102,9 +102,9 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:3 -c:a:0 copy -map 0:a:0 -c:a:1 copy -map 0:a:1 -c:a:2 copy -map 0:a:2 -c:a:3 copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -125,10 +125,10 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:2 -c:a:0 copy -map 0:a:3 -c:a:1 copy -map 0:a:2 -c:a:2 ac3 -map 0:a:4 -c:a:3 copy " +
                     "-map 0:a:0 -c:a:4 copy -map 0:a:1 -c:a:5 copy -map 0:a:0 -c:a:6 ac3 " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -151,10 +151,10 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
                     "-map 0:s:2 -map 0:s:5 -map 0:s:0 -map 0:s:4 -c:s copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -231,9 +231,9 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }
@@ -290,12 +290,12 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
                     "-map 0:a:9 -c:a:0 copy -map 0:a:0 -c:a:1 copy -map 0:a:1 -c:a:2 copy " +
                     "-map 0:a:4 -c:a:3 copy -map 0:a:5 -c:a:4 copy " +
                     "-map 0:s:1 -map 0:s:8 -map 0:s:13 -map 0:s:14 -map 0:s:0 -map 0:s:9 " +
                     "-map 0:s:15 -map 0:s:16 -map 0:s:27 -c:s copy " +
-                    "-crf 17 -preset medium Output/somefile.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }

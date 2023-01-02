@@ -36,11 +36,11 @@ class CommandCreator {
 
         val filename = args[0].replace(" ", "\\ ")
 
-        return ("ffmpeg -i $filename " +
+        return ("ffmpeg -n -i $filename " +
                 "-map 0:v -c:v libx265 " +
                 "${audioMappings(streams)} " +
                 "${subtitleMappings(streams)} " +
-                "-crf 17 -preset medium " +
+                "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
                 "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
