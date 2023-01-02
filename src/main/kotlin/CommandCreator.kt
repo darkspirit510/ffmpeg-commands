@@ -1,7 +1,7 @@
 import java.util.regex.Pattern
 
 fun main(args: Array<String>) {
-    CommandCreator().doAction(args)
+    println(CommandCreator().doAction(args))
 }
 
 class CommandCreator {
