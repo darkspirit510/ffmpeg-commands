@@ -34,12 +34,14 @@ class CommandCreator {
             throw IllegalArgumentException("Unknown stream type found")
         }
 
-        return ("ffmpeg -i ${args[0]} " +
+        val filename = args[0].replace(" ", "\\ ")
+
+        return ("ffmpeg -i $filename " +
                 "-map 0:v -c:v libx265 " +
                 "${audioMappings(streams)} " +
                 "${subtitleMappings(streams)} " +
                 "-crf 17 -preset medium " +
-                "Output/${outputName(args)}")
+                "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
 
@@ -113,7 +115,7 @@ class CommandCreator {
 
     }
 
-    private fun outputName(args: Array<String>) = "${args[0].substringBeforeLast(".")}.mkv"
+    private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
 }
 
 data class Stream(

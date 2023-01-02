@@ -46,6 +46,25 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `escapes spaces in filename`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+        """
+            )
+        ).doAction(arrayOf("Some File to convert.mkv"))
+
+        assertEquals(
+            "ffmpeg -i Some\\ File\\ to\\ convert.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:0 -c:a:0 copy " +
+                    "-crf 17 -preset medium Output/Some\\ File\\ to\\ convert.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `transforms audio on missing ac3 stream`() {
         val command = CommandCreator(
             FakeWrapper(
