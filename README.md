@@ -1,2 +1,2 @@
 # ffmpeg-commands
-create conversion commands for mmpeg
+creates conversion commands for ffmpeg
