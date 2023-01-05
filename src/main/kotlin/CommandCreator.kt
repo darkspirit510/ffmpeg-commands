@@ -57,7 +57,7 @@ class CommandCreator {
         val germanAudio = mutableListOf<Pair<Int, Stream>>()
 
         streams["Audio"]?.forEachIndexed { idx, it ->
-            if (it.lang == "deu") {
+            if (it.lang == "deu" || it.lang == "ger") {
                 germanAudio.add(Pair(idx, it))
             }
         }
@@ -88,7 +88,7 @@ class CommandCreator {
         val germanSubtitles = mutableListOf<Int>()
 
         streams["Subtitle"]?.forEachIndexed { idx, it ->
-            if (it.lang == "deu") {
+            if (it.lang == "deu" || it.lang == "ger") {
                 germanSubtitles.add(idx)
             }
         }

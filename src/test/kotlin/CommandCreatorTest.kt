@@ -239,6 +239,31 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `uses both ger and deu as german language tag`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:3(ger): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:4(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:5(deu): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:6(ger): Subtitle: hdmv_pgs_subtitle, 1920x1080
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:1 -c:a:0 copy -map 0:a:2 -c:a:1 copy -map 0:a:0 -c:a:2 copy " +
+                    "-map 0:s:1 -map 0:s:2 -map 0:s:0 -c:s copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
@@ -295,6 +320,59 @@ class CommandCreatorTest {
                     "-map 0:a:4 -c:a:3 copy -map 0:a:5 -c:a:4 copy " +
                     "-map 0:s:1 -map 0:s:8 -map 0:s:13 -map 0:s:14 -map 0:s:0 -map 0:s:9 " +
                     "-map 0:s:15 -map 0:s:16 -map 0:s:27 -c:s copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `handles real world example (2)`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: dts (DTS-HD MA), 48000 Hz, 5.1(side), s16p (default)
+            Stream #0:2(deu): Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
+            Stream #0:3(eng): Audio: dts (DTS-HD MA), 48000 Hz, 5.1(side), s16p
+            Stream #0:4(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
+            Stream #0:5(deu): Audio: dts (DTS), 48000 Hz, stereo, fltp, 768 kb/s
+            Stream #0:6(eng): Audio: dts (DTS), 48000 Hz, stereo, fltp, 768 kb/s
+            Stream #0:7(deu): Subtitle: hdmv_pgs_subtitle
+            Stream #0:8(deu): Subtitle: hdmv_pgs_subtitle (default)
+            Stream #0:9(nld): Subtitle: hdmv_pgs_subtitle
+            Stream #0:10(nld): Subtitle: hdmv_pgs_subtitle
+    """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:0 -c:a:0 copy -map 0:a:1 -c:a:1 copy -map 0:a:4 -c:a:2 copy " +
+                    "-map 0:a:0 -c:a:3 ac3 -map 0:a:2 -c:a:4 copy -map 0:a:3 -c:a:5 copy " +
+                    "-map 0:a:5 -c:a:6 copy -map 0:a:2 -c:a:7 ac3 " +
+                    "-map 0:s:0 -map 0:s:1 -c:s copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `handles real world example (3)`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: mpeg2video (Main), yuv420p(tv, top first), 720x576 [SAR 16:15 DAR 4:3], 25 fps, 25 tbr, 1k tbn, 50 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 192 kb/s (default)
+            Stream #0:2(ger): Audio: ac3, 48000 Hz, stereo, fltp, 192 kb/s
+            Stream #0:3(ger): Subtitle: dvd_subtitle, 720x576 (default)
+    """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:1 -c:a:0 copy -map 0:a:0 -c:a:1 copy " +
+                    "-map 0:s:0 -c:s copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
