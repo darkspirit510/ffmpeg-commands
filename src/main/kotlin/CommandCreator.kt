@@ -37,13 +37,20 @@ class CommandCreator {
         val filename = args[0].replace(" ", "\\ ")
 
         return ("ffmpeg -n -i $filename " +
-                "-map 0:v -c:v libx265 " +
+                "-map 0:v -c:v ${videoFormat(streams)} " +
                 "${audioMappings(streams)} " +
                 "${subtitleMappings(streams)} " +
                 "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
                 "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
+
+    private fun videoFormat(streams: Map<String, List<Stream>>): String =
+        if (streams["Video"]!!.single().codec.startsWith("hevc")) {
+            "copy"
+        } else {
+            "libx265"
+        }
 
     private fun audioMappings(streams: Map<String, List<Stream>>): String {
         val englishAudio = mutableListOf<Pair<Int, Stream>>()

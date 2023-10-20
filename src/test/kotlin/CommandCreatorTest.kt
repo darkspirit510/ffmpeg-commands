@@ -264,6 +264,25 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `copies hevc video stream`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: hevc (Main 10), yuv420p10le(tv, bt2020nc/bt2020/smpte2084), 3840x2160 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v copy " +
+                    "-map 0:a:0 -c:a:0 copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
