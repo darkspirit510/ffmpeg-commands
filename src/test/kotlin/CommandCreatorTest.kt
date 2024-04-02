@@ -19,8 +19,10 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:2 -c:a:0 copy -map 0:a:1 -c:a:1 copy " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:1 -c:a:1 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -38,7 +40,8 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mp4"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mp4 -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mp4 " +
+                    "-map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
@@ -46,7 +49,7 @@ class CommandCreatorTest {
     }
 
     @Test
-    fun `escapes spaces in filename`() {
+    fun `escapes characters in filename`() {
         val command = CommandCreator(
             FakeWrapper(
                 """
@@ -54,12 +57,14 @@ class CommandCreatorTest {
             Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
         """
             )
-        ).doAction(arrayOf("Some File to convert.mkv"))
+        ).doAction(arrayOf("Some File`s to convert (1234).mkv"))
 
         assertEquals(
-            "ffmpeg -n -i Some\\ File\\ to\\ convert.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i Some\\ File\\`s\\ to\\ convert\\ \\(1234\\).mkv " +
+                    "-map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
-                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/Some\\ File\\ to\\ convert.mkv",
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
+                    "Output/Some\\ File\\`s\\ to\\ convert\\ \\(1234\\).mkv",
             command
         )
     }
@@ -79,9 +84,14 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:2 -c:a:0 copy -map 0:a:3 -c:a:1 copy -map 0:a:2 -c:a:2 ac3 " +
-                    "-map 0:a:0 -c:a:3 copy -map 0:a:1 -c:a:4 copy -map 0:a:0 -c:a:5 ac3 " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:3 -c:a:1 copy " +
+                    "-map 0:a:2 -c:a:2 ac3 " +
+                    "-map 0:a:0 -c:a:3 copy " +
+                    "-map 0:a:1 -c:a:4 copy " +
+                    "-map 0:a:0 -c:a:5 ac3 " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -103,7 +113,10 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:3 -c:a:0 copy -map 0:a:0 -c:a:1 copy -map 0:a:1 -c:a:2 copy -map 0:a:2 -c:a:3 copy " +
+                    "-map 0:a:3 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:a:1 -c:a:2 copy " +
+                    "-map 0:a:2 -c:a:3 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -126,8 +139,13 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:2 -c:a:0 copy -map 0:a:3 -c:a:1 copy -map 0:a:2 -c:a:2 ac3 -map 0:a:4 -c:a:3 copy " +
-                    "-map 0:a:0 -c:a:4 copy -map 0:a:1 -c:a:5 copy -map 0:a:0 -c:a:6 ac3 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:3 -c:a:1 copy " +
+                    "-map 0:a:2 -c:a:2 ac3 " +
+                    "-map 0:a:4 -c:a:3 copy " +
+                    "-map 0:a:0 -c:a:4 copy " +
+                    "-map 0:a:1 -c:a:5 copy " +
+                    "-map 0:a:0 -c:a:6 ac3 " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -151,9 +169,13 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
-                    "-map 0:s:2 -map 0:s:5 -map 0:s:0 -map 0:s:4 -c:s copy " +
+                    "-map 0:s:2 -c:s:0 copy " +
+                    "-map 0:s:5 -c:s:1 copy " +
+                    "-map 0:s:0 -c:s:2 copy " +
+                    "-map 0:s:4 -c:s:3 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -256,8 +278,12 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:1 -c:a:0 copy -map 0:a:2 -c:a:1 copy -map 0:a:0 -c:a:2 copy " +
-                    "-map 0:s:1 -map 0:s:2 -map 0:s:0 -c:s copy " +
+                    "-map 0:a:1 -c:a:0 copy " +
+                    "-map 0:a:2 -c:a:1 copy " +
+                    "-map 0:a:0 -c:a:2 copy " +
+                    "-map 0:s:1 -c:s:0 copy " +
+                    "-map 0:s:2 -c:s:1 copy " +
+                    "-map 0:s:0 -c:s:2 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -277,6 +303,101 @@ class CommandCreatorTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v -c:v copy " +
                     "-map 0:a:0 -c:a:0 copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `takes additional languages via parameter`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(jap): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:3(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:4(spa): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:5(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:6(jap): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:7(deu): Subtitle: hdmv_pgs_subtitle
+            Stream #0:8(spa): Subtitle: hdmv_pgs_subtitle
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "jap"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:a:1 -c:a:2 copy " +
+                    "-map 0:s:2 -c:s:0 copy " +
+                    "-map 0:s:0 -c:s:1 copy " +
+                    "-map 0:s:1 -c:s:2 copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `takes and transforms additional languages via parameter`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(jap): Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
+            Stream #0:3(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:4(spa): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:5(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:6(jap): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:7(deu): Subtitle: hdmv_pgs_subtitle
+            Stream #0:8(spa): Subtitle: hdmv_pgs_subtitle
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "jap"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:a:1 -c:a:2 copy " +
+                    "-map 0:a:1 -c:a:3 ac3 " +
+                    "-map 0:s:2 -c:s:0 copy " +
+                    "-map 0:s:0 -c:s:1 copy " +
+                    "-map 0:s:1 -c:s:2 copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `ignores unknown or duplicate languages`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(jap): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:3(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:4(spa): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:5(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:6(jap): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:7(deu): Subtitle: hdmv_pgs_subtitle
+            Stream #0:8(spa): Subtitle: hdmv_pgs_subtitle
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "deu,jap,jap,tur"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:a:1 -c:a:2 copy " +
+                    "-map 0:s:2 -c:s:0 copy " +
+                    "-map 0:s:0 -c:s:1 copy " +
+                    "-map 0:s:1 -c:s:2 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -334,11 +455,22 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:9 -c:a:0 copy -map 0:a:0 -c:a:1 copy -map 0:a:1 -c:a:2 copy " +
-                    "-map 0:a:4 -c:a:3 copy -map 0:a:5 -c:a:4 copy " +
-                    "-map 0:s:1 -map 0:s:8 -map 0:s:13 -map 0:s:14 -map 0:s:0 -map 0:s:9 " +
-                    "-map 0:s:15 -map 0:s:16 -map 0:s:27 -c:s copy " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:9 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:a:1 -c:a:2 copy " +
+                    "-map 0:a:4 -c:a:3 copy " +
+                    "-map 0:a:5 -c:a:4 copy " +
+                    "-map 0:s:1 -c:s:0 copy " +
+                    "-map 0:s:8 -c:s:1 copy " +
+                    "-map 0:s:13 -c:s:2 copy " +
+                    "-map 0:s:14 -c:s:3 copy " +
+                    "-map 0:s:0 -c:s:4 copy " +
+                    "-map 0:s:9 -c:s:5 copy " +
+                    "-map 0:s:15 -c:s:6 copy " +
+                    "-map 0:s:16 -c:s:7 copy " +
+                    "-map 0:s:27 -c:s:8 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -365,11 +497,18 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:0 -c:a:0 copy -map 0:a:1 -c:a:1 copy -map 0:a:4 -c:a:2 copy " +
-                    "-map 0:a:0 -c:a:3 ac3 -map 0:a:2 -c:a:4 copy -map 0:a:3 -c:a:5 copy " +
-                    "-map 0:a:5 -c:a:6 copy -map 0:a:2 -c:a:7 ac3 " +
-                    "-map 0:s:0 -map 0:s:1 -c:s copy " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:0 -c:a:0 copy " +
+                    "-map 0:a:1 -c:a:1 copy " +
+                    "-map 0:a:4 -c:a:2 copy " +
+                    "-map 0:a:0 -c:a:3 ac3 " +
+                    "-map 0:a:2 -c:a:4 copy " +
+                    "-map 0:a:3 -c:a:5 copy " +
+                    "-map 0:a:5 -c:a:6 copy " +
+                    "-map 0:a:2 -c:a:7 ac3 " +
+                    "-map 0:s:0 -c:s:0 copy " +
+                    "-map 0:s:1 -c:s:1 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
@@ -389,9 +528,11 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
-                    "-map 0:a:1 -c:a:0 copy -map 0:a:0 -c:a:1 copy " +
-                    "-map 0:s:0 -c:s copy " +
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:1 -c:a:0 copy " +
+                    "-map 0:a:0 -c:a:1 copy " +
+                    "-map 0:s:0 -c:s:0 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )

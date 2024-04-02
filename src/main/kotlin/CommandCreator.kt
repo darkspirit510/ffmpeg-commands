@@ -6,6 +6,8 @@ fun main(args: Array<String>) {
 
 class CommandCreator {
 
+    private val defaultLanguages = listOf("deu", "ger", "eng")
+
     private val ffmpegWrapper: FfmpegWrapper
 
     constructor() {
@@ -17,6 +19,8 @@ class CommandCreator {
     }
 
     fun doAction(args: Array<String>): String {
+        val takeLanguages = languageList(args).distinct()
+
         val streams = ffmpegWrapper
             .read(args[0])
             .asSequence()
@@ -34,15 +38,31 @@ class CommandCreator {
             throw IllegalArgumentException("Unknown stream type found")
         }
 
-        val filename = args[0].replace(" ", "\\ ")
+        val filename = escape(args[0])
 
         return ("ffmpeg -n -i $filename " +
                 "-map 0:v -c:v ${videoFormat(streams)} " +
-                "${audioMappings(streams)} " +
-                "${subtitleMappings(streams)} " +
+                "${audioMappings(streams, takeLanguages)} " +
+                "${subtitleMappings(streams, takeLanguages)} " +
                 "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
                 "Output/${outputName(filename)}")
             .replace("  ", " ")
+    }
+
+    private fun escape(filename: String): String {
+        var escapedFilename = filename
+
+        listOf(" ", "`", "(", ")").forEach {
+            escapedFilename = escapedFilename.replace(it, "\\$it")
+        }
+
+        return escapedFilename
+    }
+
+    private fun languageList(args: Array<String>) = if (args.size > 1 && args[0].isNotEmpty()) {
+        defaultLanguages.plus(args[1].split(","))
+    } else {
+        defaultLanguages
     }
 
     private fun videoFormat(streams: Map<String, List<Stream>>): String =
@@ -52,29 +72,21 @@ class CommandCreator {
             "libx265"
         }
 
-    private fun audioMappings(streams: Map<String, List<Stream>>): String {
-        val englishAudio = mutableListOf<Pair<Int, Stream>>()
-
-        streams["Audio"]?.forEachIndexed { idx, it ->
-            if (it.lang == "eng") {
-                englishAudio.add(Pair(idx, it))
-            }
+    private fun audioMappings(streams: Map<String, List<Stream>>, takeLanguages: List<String>): String = takeLanguages
+        .flatMap { lang ->
+            audioMappingsFor(streams["Audio"]?.mapIndexedNotNull { idx, it ->
+                if (it.lang == lang) {
+                    Pair(idx, it)
+                } else {
+                    null
+                }
+            } ?: emptyList()
+            )
         }
+        .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
+        .joinToString(" ")
 
-        val germanAudio = mutableListOf<Pair<Int, Stream>>()
-
-        streams["Audio"]?.forEachIndexed { idx, it ->
-            if (it.lang == "deu" || it.lang == "ger") {
-                germanAudio.add(Pair(idx, it))
-            }
-        }
-
-        return (mappingsFor(germanAudio) + mappingsFor(englishAudio))
-            .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
-            .joinToString(" ")
-    }
-
-    private fun mappingsFor(sourceMappings: MutableList<Pair<Int, Stream>>): MutableList<Mapping> {
+    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>): List<Mapping> {
         val audioMappings = mutableListOf<Mapping>()
 
         sourceMappings.forEach {
@@ -91,35 +103,18 @@ class CommandCreator {
         return audioMappings
     }
 
-    private fun subtitleMappings(streams: Map<String, List<Stream>>): String {
-        val germanSubtitles = mutableListOf<Int>()
+    private fun subtitleMappings(streams: Map<String, List<Stream>>, takeLanguages: List<String>): String {
+        val subtitleCommands = mutableListOf<String>()
 
-        streams["Subtitle"]?.forEachIndexed { idx, it ->
-            if (it.lang == "deu" || it.lang == "ger") {
-                germanSubtitles.add(idx)
+        takeLanguages.forEach { lang ->
+            streams["Subtitle"]?.forEachIndexed { idx, it ->
+                if (it.lang == lang) {
+                    subtitleCommands.add("-map 0:s:$idx -c:s:${subtitleCommands.size} copy ")
+                }
             }
         }
 
-        val englishSubtitles = mutableListOf<Int>()
-
-        streams["Subtitle"]?.forEachIndexed { idx, it ->
-            if (it.lang == "eng") {
-                englishSubtitles.add(idx)
-            }
-        }
-
-        var subtitleCommand = ""
-
-        (germanSubtitles + englishSubtitles).forEach {
-            subtitleCommand += "-map 0:s:${it} "
-        }
-
-        return if (subtitleCommand.isNotBlank()) {
-            "$subtitleCommand -c:s copy"
-        } else {
-            ""
-        }
-
+        return subtitleCommands.joinToString("") { it }
     }
 
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
@@ -147,7 +142,7 @@ data class Stream(
                     index = group("index").toInt(),
                     lang = group("lang"),
                     type = group("type"),
-                    codec = group("codec"),
+                    codec = group("codec")
                 )
             }
         }
