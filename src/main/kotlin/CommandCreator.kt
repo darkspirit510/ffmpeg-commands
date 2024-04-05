@@ -6,6 +6,7 @@ fun main(args: Array<String>) {
 
 class CommandCreator {
 
+    private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -34,7 +35,7 @@ class CommandCreator {
             throw IllegalArgumentException("Multiple video streams found")
         }
 
-        if (streams.keys.any { it != "Video" && it != "Audio" && it != "Subtitle" }) {
+        if (streams.keys.any { !knownChannelTypes.contains(it) }) {
             throw IllegalArgumentException("Unknown stream type found")
         }
 
@@ -44,9 +45,16 @@ class CommandCreator {
                 "-map 0:v -c:v ${videoFormat(streams)} " +
                 "${audioMappings(streams, takeLanguages)} " +
                 "${subtitleMappings(streams, takeLanguages)} " +
+                attachmentMapping(streams) +
                 "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
                 "Output/${outputName(filename)}")
             .replace("  ", " ")
+    }
+
+    private fun attachmentMapping(streams: Map<String, List<Stream>>) = if (streams.keys.contains("Attachment")) {
+        "-map 0:t -c:t copy "
+    } else {
+        ""
     }
 
     private fun escape(filename: String): String {
@@ -127,14 +135,29 @@ data class Stream(
     val codec: String
 ) {
     companion object {
-        private val pattern = Pattern.compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
+        private val patternWithLang =
+            Pattern.compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
+        private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+): (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String): Stream {
-            with(pattern
+            with(patternWithLang
                 .matcher(raw)
                 .apply {
                     if (!matches()) {
-                        throw IllegalArgumentException("Missing language for stream")
+                        with(patternWithoutLang
+                            .matcher(raw)
+                            .apply {
+                                if (!matches() || group("type") != "Attachment") {
+                                    throw IllegalArgumentException("Missing language for stream")
+                                }
+                            }) {
+                            return Stream(
+                                index = group("index").toInt(),
+                                lang = "???",
+                                type = group("type"),
+                                codec = group("codec")
+                            )
+                        }
                     }
                 }
             ) {

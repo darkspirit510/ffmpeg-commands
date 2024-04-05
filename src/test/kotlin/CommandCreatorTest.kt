@@ -197,21 +197,6 @@ class CommandCreatorTest {
     }
 
     @Test
-    fun `fails on unknown stream type`() {
-        assertThrows<IllegalArgumentException> {
-            CommandCreator(
-                FakeWrapper(
-                    """
-            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            Stream #0:2(deu): Attachment: something
-        """
-                )
-            ).doAction(arrayOf("somefile.mkv"))
-        }
-    }
-
-    @Test
     fun `fails on missing language for audio`() {
         assertThrows<IllegalArgumentException> {
             CommandCreator(
@@ -404,6 +389,29 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `maps attachments`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+            Stream #0:3: Attachment: ttf
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv -map 0:v -c:v libx265 " +
+                    "-map 0:a:0 -c:a:0 copy " +
+                    "-map 0:s:0 -c:s:0 copy " +
+                    "-map 0:t -c:t copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
@@ -533,6 +541,42 @@ class CommandCreatorTest {
                     "-map 0:a:1 -c:a:0 copy " +
                     "-map 0:a:0 -c:a:1 copy " +
                     "-map 0:s:0 -c:s:0 copy " +
+                    "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `handles real world example (4)`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+              Stream #0:0(eng): Video: h264 (High), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn (default)
+              Stream #0:1(eng): Audio: aac (LC), 48000 Hz, 5.1, fltp
+              Stream #0:2(jpn): Audio: aac (LC), 48000 Hz, stereo, fltp
+              Stream #0:3(eng): Subtitle: ass
+              Stream #0:4(jpn): Subtitle: ass
+              Stream #0:5(ger): Audio: mp3, 48000 Hz, stereo, fltp, 320 kb/s (default)
+              Stream #0:6: Attachment: ttf
+              Stream #0:7: Attachment: ttf
+              Stream #0:8: Attachment: ttf
+              Stream #0:9: Attachment: ttf
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "jpn"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                    "-map 0:v -c:v libx265 " +
+                    "-map 0:a:2 -c:a:0 copy " +
+                    "-map 0:a:2 -c:a:1 ac3 " +
+                    "-map 0:a:0 -c:a:2 copy " +
+                    "-map 0:a:0 -c:a:3 ac3 " +
+                    "-map 0:a:1 -c:a:4 copy " +
+                    "-map 0:a:1 -c:a:5 ac3 " +
+                    "-map 0:s:0 -c:s:0 copy " +
+                    "-map 0:s:1 -c:s:1 copy " +
+                    "-map 0:t -c:t copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
