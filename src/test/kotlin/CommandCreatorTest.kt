@@ -1,4 +1,5 @@
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 
@@ -190,6 +191,20 @@ class CommandCreatorTest {
             Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
             Stream #0:1(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
             Stream #0:2(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+        """
+                )
+            ).doAction(arrayOf("somefile.mkv"))
+        }
+    }
+
+    @Test
+    fun `accepts missing language for video`() {
+        assertDoesNotThrow {
+            CommandCreator(
+                FakeWrapper(
+                    """
+            Stream #0:0: Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
         """
                 )
             ).doAction(arrayOf("somefile.mkv"))

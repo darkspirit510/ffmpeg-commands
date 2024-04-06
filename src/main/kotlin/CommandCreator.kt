@@ -147,7 +147,7 @@ data class Stream(
                         with(patternWithoutLang
                             .matcher(raw)
                             .apply {
-                                if (!matches() || group("type") != "Attachment") {
+                                if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
                                     throw IllegalArgumentException("Missing language for stream")
                                 }
                             }) {
