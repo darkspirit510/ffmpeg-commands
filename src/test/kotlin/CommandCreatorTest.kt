@@ -58,14 +58,14 @@ class CommandCreatorTest {
             Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
         """
             )
-        ).doAction(arrayOf("Some File`s to convert (1234).mkv"))
+        ).doAction(arrayOf("Some File`s to convert (1234)?!.mkv"))
 
         assertEquals(
-            "ffmpeg -n -i Some\\ File\\`s\\ to\\ convert\\ \\(1234\\).mkv " +
+            "ffmpeg -n -i Some\\ File\\`s\\ to\\ convert\\ \\(1234\\)\\?\\!.mkv " +
                     "-map 0:v -c:v libx265 " +
                     "-map 0:a:0 -c:a:0 copy " +
                     "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
-                    "Output/Some\\ File\\`s\\ to\\ convert\\ \\(1234\\).mkv",
+                    "Output/Some\\ File\\`s\\ to\\ convert\\ \\(1234\\)\\?\\!.mkv",
             command
         )
     }

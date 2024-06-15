@@ -8,6 +8,7 @@ class CommandCreator {
 
     private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
+    private val escapeCharacters = listOf(" ", "`", "(", ")", "!", "?")
 
     private val ffmpegWrapper: FfmpegWrapper
 
@@ -60,7 +61,7 @@ class CommandCreator {
     private fun escape(filename: String): String {
         var escapedFilename = filename
 
-        listOf(" ", "`", "(", ")").forEach {
+        escapeCharacters.forEach {
             escapedFilename = escapedFilename.replace(it, "\\$it")
         }
 
