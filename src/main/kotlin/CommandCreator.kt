@@ -4,11 +4,22 @@ fun main(args: Array<String>) {
     println(CommandCreator().doAction(args))
 }
 
+private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
+private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
+private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
+private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
+
 class CommandCreator {
 
     private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
     private val escapeCharacters = listOf(" ", "`", "(", ")", "!", "?")
+    private val knownParameters = listOf(
+        ADDITIONAL_LANGUAGES,
+        IGNORE_MISSING_AUDIO_LANGUAGE,
+        IGNORE_MISSING_SUBTITLE_LANGUAGE,
+        PRESERVE_MISSING_AUDIO_LANGUAGE
+    )
 
     private val ffmpegWrapper: FfmpegWrapper
 
@@ -21,7 +32,9 @@ class CommandCreator {
     }
 
     fun doAction(args: Array<String>): String {
-        val takeLanguages = languageList(args).distinct()
+        val parsedArgs = parseArgs(args)
+
+        val takeLanguages = languageList(parsedArgs).distinct()
 
         val streams = ffmpegWrapper
             .read(args[0])
@@ -29,7 +42,8 @@ class CommandCreator {
             .map { it.trim() }
             .filter { it.contains("Stream") }
             .filter { !it.startsWith("Guessed") }
-            .map { Stream.from(it) }
+            .map { Stream.from(it, parsedArgs) }
+            .filterNotNull()
             .groupBy { it.type }
 
         if (streams["Video"]!!.size > 1) {
@@ -44,12 +58,26 @@ class CommandCreator {
 
         return ("ffmpeg -n -i $filename " +
             "-map 0:v -c:v ${videoFormat(streams)} " +
-            "${audioMappings(streams, takeLanguages)} " +
+            "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages)} " +
             attachmentMapping(streams) +
             "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
             "Output/${outputName(filename)}")
             .replace("  ", " ")
+    }
+
+    private fun parseArgs(args: Array<String>): Map<String, String> {
+        args.drop(1)
+            .map { it.drop(1).substringBefore("=") }
+            .forEach {
+                if (!knownParameters.contains(it)) {
+                    throw IllegalArgumentException("Unknown option $it")
+                }
+            }
+
+        return knownParameters
+            .associateWith { args.option(it) }
+            .filter { it.value != null } as Map<String, String>
     }
 
     private fun attachmentMapping(streams: Map<String, List<Stream>>) = if (streams.keys.contains("Attachment")) {
@@ -68,11 +96,10 @@ class CommandCreator {
         return escapedFilename
     }
 
-    private fun languageList(args: Array<String>) = if (args.size > 1 && args[0].isNotEmpty()) {
-        defaultLanguages.plus(args[1].split(","))
-    } else {
-        defaultLanguages
-    }
+    private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
+        parameters[ADDITIONAL_LANGUAGES]?.split(",")
+            ?: emptyList()
+    )
 
     private fun videoFormat(streams: Map<String, List<Stream>>): String =
         if (streams["Video"]!!.single().codec.startsWith("hevc")) {
@@ -81,10 +108,14 @@ class CommandCreator {
             "libx265"
         }
 
-    private fun audioMappings(streams: Map<String, List<Stream>>, takeLanguages: List<String>): String = takeLanguages
+    private fun audioMappings(
+        streams: Map<String, List<Stream>>,
+        takeLanguages: List<String>,
+        parsedArgs: Map<String, String>
+    ): String = takeLanguages
         .flatMap { lang ->
             audioMappingsFor(streams["Audio"]?.mapIndexedNotNull { idx, it ->
-                if (it.lang == lang) {
+                if (it.lang == lang || it.lang == "???" && parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)) {
                     Pair(idx, it)
                 } else {
                     null
@@ -92,6 +123,7 @@ class CommandCreator {
             } ?: emptyList()
             )
         }
+        .toSet()
         .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
         .joinToString(" ")
 
@@ -129,6 +161,19 @@ class CommandCreator {
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
 }
 
+private fun Array<String>.option(parameter: String): String? {
+    val split = firstOrNull { it.startsWith("-$parameter") }
+        ?.split("=")
+
+    return split?.let {
+        return if (it.size == 1) {
+            ""
+        } else {
+            it[1]
+        }
+    }
+}
+
 data class Stream(
     val index: Int,
     val lang: String,
@@ -140,7 +185,7 @@ data class Stream(
             .compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
         private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+): (?<type>\w+): (?<codec>.*)""")
 
-        fun from(raw: String): Stream {
+        fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
             with(
                 patternWithLang
                     .matcher(raw)
@@ -151,9 +196,12 @@ data class Stream(
                                     .matcher(raw)
                                     .apply {
                                         if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
-                                            throw IllegalArgumentException("Missing language for stream")
+                                            if (!ignoreMissingLanguage(group("type"), parsedArgs)) {
+                                                throw IllegalArgumentException("Missing language for stream ($raw)")
+                                            }
                                         }
-                                    }) {
+                                    }
+                            ) {
                                 return Stream(
                                     index = group("index").toInt(),
                                     lang = "???",
@@ -171,6 +219,13 @@ data class Stream(
                     codec = group("codec")
                 )
             }
+        }
+
+        private fun ignoreMissingLanguage(type: String?, parsedArgs: Map<String, String>) = when (type) {
+            "Audio" -> parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) || parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)
+            "Subtitle" -> parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
+
+            else -> true
         }
     }
 }
