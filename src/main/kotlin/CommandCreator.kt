@@ -43,12 +43,12 @@ class CommandCreator {
         val filename = escape(args[0])
 
         return ("ffmpeg -n -i $filename " +
-                "-map 0:v -c:v ${videoFormat(streams)} " +
-                "${audioMappings(streams, takeLanguages)} " +
-                "${subtitleMappings(streams, takeLanguages)} " +
-                attachmentMapping(streams) +
-                "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
-                "Output/${outputName(filename)}")
+            "-map 0:v -c:v ${videoFormat(streams)} " +
+            "${audioMappings(streams, takeLanguages)} " +
+            "${subtitleMappings(streams, takeLanguages)} " +
+            attachmentMapping(streams) +
+            "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
+            "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
 
@@ -136,31 +136,33 @@ data class Stream(
     val codec: String
 ) {
     companion object {
-        private val patternWithLang =
-            Pattern.compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
+        private val patternWithLang = Pattern
+            .compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
         private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+): (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String): Stream {
-            with(patternWithLang
-                .matcher(raw)
-                .apply {
-                    if (!matches()) {
-                        with(patternWithoutLang
-                            .matcher(raw)
-                            .apply {
-                                if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
-                                    throw IllegalArgumentException("Missing language for stream")
-                                }
-                            }) {
-                            return Stream(
-                                index = group("index").toInt(),
-                                lang = "???",
-                                type = group("type"),
-                                codec = group("codec")
-                            )
+            with(
+                patternWithLang
+                    .matcher(raw)
+                    .apply {
+                        if (!matches()) {
+                            with(
+                                patternWithoutLang
+                                    .matcher(raw)
+                                    .apply {
+                                        if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
+                                            throw IllegalArgumentException("Missing language for stream")
+                                        }
+                                    }) {
+                                return Stream(
+                                    index = group("index").toInt(),
+                                    lang = "???",
+                                    type = group("type"),
+                                    codec = group("codec")
+                                )
+                            }
                         }
                     }
-                }
             ) {
                 return Stream(
                     index = group("index").toInt(),
