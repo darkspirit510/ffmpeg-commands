@@ -46,10 +46,6 @@ class CommandCreator {
             .filterNotNull()
             .groupBy { it.type }
 
-        if (streams["Video"]!!.size > 1) {
-            throw IllegalArgumentException("Multiple video streams found")
-        }
-
         if (streams.keys.any { !knownChannelTypes.contains(it) }) {
             throw IllegalArgumentException("Unknown stream type found")
         }
@@ -57,7 +53,7 @@ class CommandCreator {
         val filename = escape(args[0])
 
         return ("ffmpeg -n -i $filename " +
-            "-map 0:v -c:v ${videoFormat(streams)} " +
+            "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages)} " +
             attachmentMapping(streams) +
@@ -102,7 +98,7 @@ class CommandCreator {
     )
 
     private fun videoFormat(streams: Map<String, List<Stream>>): String =
-        if (streams["Video"]!!.single().codec.startsWith("hevc")) {
+        if (streams["Video"]!!.first().codec.startsWith("hevc")) {
             "copy"
         } else {
             "libx265"
