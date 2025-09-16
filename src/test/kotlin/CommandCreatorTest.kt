@@ -557,6 +557,27 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `drops subtitles via option`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            Stream #0:2(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-dropSubtitles"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libx265 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(

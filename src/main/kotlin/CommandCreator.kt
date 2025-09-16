@@ -5,6 +5,7 @@ fun main(args: Array<String>) {
 }
 
 private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
+private const val DROP_SUBTITLES = "dropSubtitles"
 private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
@@ -16,6 +17,7 @@ class CommandCreator {
     private val escapeCharacters = listOf(" ", "`", "(", ")", "!", "?")
     private val knownParameters = listOf(
         ADDITIONAL_LANGUAGES,
+        DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
         PRESERVE_MISSING_AUDIO_LANGUAGE
@@ -52,7 +54,7 @@ class CommandCreator {
         return ("ffmpeg -n -i $filename " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
-            "${subtitleMappings(streams, takeLanguages)} " +
+            "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
             "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
             "Output/${outputName(filename)}")
@@ -137,7 +139,15 @@ class CommandCreator {
         return audioMappings
     }
 
-    private fun subtitleMappings(streams: Map<String, List<Stream>>, takeLanguages: List<String>): String {
+    private fun subtitleMappings(
+        streams: Map<String, List<Stream>>,
+        takeLanguages: List<String>,
+        parsedArgs: Map<String, String>
+    ): String {
+        if (parsedArgs.contains(DROP_SUBTITLES)) {
+            return ""
+        }
+
         val subtitleCommands = mutableListOf<String>()
 
         takeLanguages.forEach { lang ->
@@ -176,7 +186,8 @@ data class Stream(
     companion object {
         private val patternWithLang = Pattern
             .compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
-        private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
+        private val patternWithoutLang =
+            Pattern.compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
             with(
@@ -215,7 +226,10 @@ data class Stream(
         }
 
         private fun ignoreMissingLanguage(type: String?, parsedArgs: Map<String, String>) = when (type) {
-            "Audio" -> parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) || parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)
+            "Audio" -> parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) || parsedArgs.contains(
+                PRESERVE_MISSING_AUDIO_LANGUAGE
+            )
+
             "Subtitle" -> parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
 
             else -> true
