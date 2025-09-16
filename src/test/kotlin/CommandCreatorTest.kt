@@ -536,6 +536,27 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `ignores stream identifier in square brackets`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0[0x1](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1280x720, 2800 kb/s, 23.98 fps, 23.98 tbr, 90k tbn (default)
+            Stream #0:1[0x2](deu): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, 5.1, fltp, 657 kb/s (default)
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libx265 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:1 ac3 " +
+                "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
@@ -701,6 +722,34 @@ class CommandCreatorTest {
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-map 0:t -c:t copy " +
+                "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `handles real world example (5)`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0[0x1](und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1280x720, 2800 kb/s, 23.98 fps, 23.98 tbr, 90k tbn (default)
+                Stream #0:1[0x2](deu): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, 5.1, fltp, 657 kb/s (default)
+                Stream #0:2[0x3](eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, 5.1, fltp, 656 kb/s
+                Stream #0:3[0x4](deu): Subtitle: mov_text (tx3g / 0x67337874), 1280x60, 0 kb/s (default)
+                Stream #0:4[0x5](eng): Data: bin_data (text / 0x74786574)
+                Stream #0:5[0x0]: Video: png, rgba(pc, gbr/unknown/unknown), 480x660, 90k tbr, 90k tbn (attached pic)
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=jpn"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libx265 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:1 ac3 " +
+                "-map 0:a:1 -c:a:2 copy " +
+                "-map 0:a:1 -c:a:3 ac3 " +
+                "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset medium -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )

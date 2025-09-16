@@ -45,10 +45,7 @@ class CommandCreator {
             .map { Stream.from(it, parsedArgs) }
             .filterNotNull()
             .groupBy { it.type }
-
-        if (streams.keys.any { !knownChannelTypes.contains(it) }) {
-            throw IllegalArgumentException("Unknown stream type found")
-        }
+            .filter { knownChannelTypes.contains(it.key) }
 
         val filename = escape(args[0])
 
@@ -178,8 +175,8 @@ data class Stream(
 ) {
     companion object {
         private val patternWithLang = Pattern
-            .compile("""Stream #0:(?<index>\d+)\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
-        private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+): (?<type>\w+): (?<codec>.*)""")
+            .compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
+        private val patternWithoutLang = Pattern.compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
             with(
