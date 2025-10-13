@@ -10,6 +10,7 @@ private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
 private const val TRANSCODE_AV1 = "av1"
+private const val FFMPEG_CUSTOM_PATH = "ffmpegPath"
 
 class CommandCreator {
 
@@ -22,7 +23,8 @@ class CommandCreator {
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
         PRESERVE_MISSING_AUDIO_LANGUAGE,
-        TRANSCODE_AV1
+        TRANSCODE_AV1,
+        FFMPEG_CUSTOM_PATH
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -53,7 +55,7 @@ class CommandCreator {
 
         val filename = escape(args[0])
 
-        return ("ffmpeg -n -i $filename " +
+        return (ffmpegCustomPath(parsedArgs) + "ffmpeg -n -i $filename " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams, parsedArgs)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
@@ -174,6 +176,8 @@ class CommandCreator {
     }
 
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
+
+    private fun ffmpegCustomPath(parsedArgs: Map<String, String>) = parsedArgs[FFMPEG_CUSTOM_PATH] ?: ""
 }
 
 private fun Array<String>.option(parameter: String): String? {
