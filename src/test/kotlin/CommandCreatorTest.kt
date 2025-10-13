@@ -578,6 +578,26 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `transcodes to AV1 via option`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+        """
+            )
+        ).doAction(arrayOf("somefile.mp4", "-av1"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mp4 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 4 -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(

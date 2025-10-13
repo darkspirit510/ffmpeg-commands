@@ -9,6 +9,7 @@ private const val DROP_SUBTITLES = "dropSubtitles"
 private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
+private const val TRANSCODE_AV1 = "av1"
 
 class CommandCreator {
 
@@ -20,7 +21,8 @@ class CommandCreator {
         DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
-        PRESERVE_MISSING_AUDIO_LANGUAGE
+        PRESERVE_MISSING_AUDIO_LANGUAGE,
+        TRANSCODE_AV1
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -52,11 +54,11 @@ class CommandCreator {
         val filename = escape(args[0])
 
         return ("ffmpeg -n -i $filename " +
-            "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
+            "-map 0:v:0 -c:v:0 ${videoFormat(streams, parsedArgs)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
-            "-crf 17 -preset medium -max_muxing_queue_size 9999 " +
+            "-crf 17 -preset ${preset(parsedArgs)} -max_muxing_queue_size 9999 " +
             "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
@@ -81,6 +83,12 @@ class CommandCreator {
         ""
     }
 
+    private fun preset(parsedArgs: Map<String, String>) = if (parsedArgs.contains(TRANSCODE_AV1)) {
+        "4"
+    } else {
+        "medium"
+    }
+
     private fun escape(filename: String): String {
         var escapedFilename = filename
 
@@ -96,11 +104,15 @@ class CommandCreator {
             ?: emptyList()
     )
 
-    private fun videoFormat(streams: Map<String, List<Stream>>): String =
+    private fun videoFormat(streams: Map<String, List<Stream>>, parsedArgs: Map<String, String>): String =
         if (streams["Video"]!!.first().codec.startsWith("hevc")) {
             "copy"
         } else {
-            "libx265"
+            if (parsedArgs.contains(TRANSCODE_AV1)) {
+                "libsvtav1"
+            } else {
+                "libx265"
+            }
         }
 
     private fun audioMappings(
