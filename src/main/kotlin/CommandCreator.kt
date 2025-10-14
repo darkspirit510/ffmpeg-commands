@@ -9,7 +9,7 @@ private const val DROP_SUBTITLES = "dropSubtitles"
 private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
-private const val TRANSCODE_AV1 = "av1"
+private const val ALIAS="alias"
 
 class CommandCreator {
 
@@ -17,6 +17,7 @@ class CommandCreator {
     private val defaultLanguages = listOf("deu", "ger", "eng")
     private val escapeCharacters = listOf(" ", "`", "(", ")", "!", "?")
     private val knownParameters = listOf(
+        ALIAS,
         ADDITIONAL_LANGUAGES,
         DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
@@ -52,7 +53,7 @@ class CommandCreator {
 
         val filename = escape(args[0])
 
-        return ("ffmpeg -n -i $filename " +
+        return ("${command(parsedArgs)} -n -i $filename " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
@@ -61,6 +62,8 @@ class CommandCreator {
             "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
+
+    private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"
 
     private fun parseArgs(args: Array<String>): Map<String, String> {
         args.drop(1)
