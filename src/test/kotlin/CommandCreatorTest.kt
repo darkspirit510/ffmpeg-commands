@@ -592,7 +592,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mp4 " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 4 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )
     }

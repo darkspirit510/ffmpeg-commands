@@ -86,7 +86,7 @@ class CommandCreator {
     }
 
     private fun preset(parsedArgs: Map<String, String>) = if (parsedArgs.contains(TRANSCODE_AV1)) {
-        "4"
+        "2"
     } else {
         "medium"
     }
