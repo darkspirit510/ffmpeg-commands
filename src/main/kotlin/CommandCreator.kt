@@ -10,7 +10,6 @@ private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
 private const val TRANSCODE_AV1 = "av1"
-private const val FFMPEG_CUSTOM_PATH = "ffmpegPath"
 
 class CommandCreator {
 
@@ -22,9 +21,7 @@ class CommandCreator {
         DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
-        PRESERVE_MISSING_AUDIO_LANGUAGE,
-        TRANSCODE_AV1,
-        FFMPEG_CUSTOM_PATH
+        PRESERVE_MISSING_AUDIO_LANGUAGE
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -55,12 +52,12 @@ class CommandCreator {
 
         val filename = escape(args[0])
 
-        return (ffmpegCustomPath(parsedArgs) + "ffmpeg -n -i $filename " +
-            "-map 0:v:0 -c:v:0 ${videoFormat(streams, parsedArgs)} " +
+        return ("ffmpeg -n -i $filename " +
+            "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
-            "-crf 17 -preset ${preset(parsedArgs)} -max_muxing_queue_size 9999 " +
+            "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
             "Output/${outputName(filename)}")
             .replace("  ", " ")
     }
@@ -85,12 +82,6 @@ class CommandCreator {
         ""
     }
 
-    private fun preset(parsedArgs: Map<String, String>) = if (parsedArgs.contains(TRANSCODE_AV1)) {
-        "2"
-    } else {
-        "medium"
-    }
-
     private fun escape(filename: String): String {
         var escapedFilename = filename
 
@@ -106,15 +97,11 @@ class CommandCreator {
             ?: emptyList()
     )
 
-    private fun videoFormat(streams: Map<String, List<Stream>>, parsedArgs: Map<String, String>): String =
-        if (streams["Video"]!!.first().codec.startsWith("hevc")) {
+    private fun videoFormat(streams: Map<String, List<Stream>>): String =
+        if (streams["Video"]!!.first().codec.startsWith("av1")) {
             "copy"
         } else {
-            if (parsedArgs.contains(TRANSCODE_AV1)) {
-                "libsvtav1"
-            } else {
-                "libx265"
-            }
+            "libsvtav1"
         }
 
     private fun audioMappings(
@@ -176,8 +163,6 @@ class CommandCreator {
     }
 
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
-
-    private fun ffmpegCustomPath(parsedArgs: Map<String, String>) = parsedArgs[FFMPEG_CUSTOM_PATH] ?: ""
 }
 
 private fun Array<String>.option(parameter: String): String? {
