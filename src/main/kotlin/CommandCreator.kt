@@ -1,4 +1,5 @@
 import java.util.regex.Pattern
+import kotlin.text.contains
 
 fun main(args: Array<String>) {
     println(CommandCreator().doAction(args))
@@ -10,6 +11,7 @@ private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
 private const val ALIAS="alias"
+private const val DOCKER="docker"
 
 class CommandCreator {
 
@@ -19,6 +21,7 @@ class CommandCreator {
     private val knownParameters = listOf(
         ALIAS,
         ADDITIONAL_LANGUAGES,
+        DOCKER,
         DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
@@ -38,6 +41,10 @@ class CommandCreator {
     fun doAction(args: Array<String>): String {
         val parsedArgs = parseArgs(args)
 
+        if (parsedArgs.contains(ALIAS) && parsedArgs.contains(DOCKER)) {
+            throw IllegalArgumentException("Cannot use alias and docker options together")
+        }
+
         val takeLanguages = languageList(parsedArgs).distinct()
 
         val streams = ffmpegWrapper
@@ -52,15 +59,25 @@ class CommandCreator {
             .filter { knownChannelTypes.contains(it.key) }
 
         val filename = escape(args[0])
+        val useDocker = parsedArgs.contains(DOCKER)
 
-        return ("${command(parsedArgs)} -n -i $filename " +
+        val inputFile = if (useDocker) "/config/$filename" else filename
+        val outputDir = if (useDocker) "/config/Output" else "Output"
+
+        val baseCommand = ("${command(parsedArgs)} -n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
             "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
-            "Output/${outputName(filename)}")
+            "$outputDir/${outputName(filename)}")
             .replace("  ", " ")
+
+        return if (useDocker) {
+            "docker run --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+        } else {
+            baseCommand
+        }
     }
 
     private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"

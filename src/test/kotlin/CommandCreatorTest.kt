@@ -606,6 +606,56 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `uses docker wrapper when docker option is set`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-docker"))
+
+        assertEquals(
+            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg ffmpeg -n -i /config/somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `uses docker wrapper with escaped filename`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("Some File`s (2024).mkv", "-docker"))
+
+        assertEquals(
+            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg ffmpeg -n -i /config/Some\\ File\\`s\\ \\(2024\\).mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/Some\\ File\\`s\\ \\(2024\\).mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `rejects combination of parameters alias and docker`() {
+        val exception = assertThrows<IllegalArgumentException> {
+            CommandCreator(FakeWrapper(""))
+                .doAction(arrayOf("somefile.mkv", "-docker", "-alias=customffmpeg"))
+        }
+
+        assertEquals("Cannot use alias and docker options together", exception.message)
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
