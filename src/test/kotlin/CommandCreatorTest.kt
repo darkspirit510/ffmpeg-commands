@@ -617,7 +617,7 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv", "-docker"))
 
         assertEquals(
-            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg ffmpeg -n -i /config/somefile.mkv " +
+            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
@@ -637,7 +637,7 @@ class CommandCreatorTest {
         ).doAction(arrayOf("Some File`s (2024).mkv", "-docker"))
 
         assertEquals(
-            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg ffmpeg -n -i /config/Some\\ File\\`s\\ \\(2024\\).mkv " +
+            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/Some\\ File\\`s\\ \\(2024\\).mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/Some\\ File\\`s\\ \\(2024\\).mkv",

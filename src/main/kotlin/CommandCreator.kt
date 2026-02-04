@@ -61,10 +61,25 @@ class CommandCreator {
         val filename = escape(args[0])
         val useDocker = parsedArgs.contains(DOCKER)
 
-        val inputFile = if (useDocker) "/config/$filename" else filename
-        val outputDir = if (useDocker) "/config/Output" else "Output"
+        val inputFile = if (useDocker) {
+            "/config/$filename"
+        } else {
+            filename
+        }
 
-        val baseCommand = ("${command(parsedArgs)} -n -i $inputFile " +
+        val outputDir = if (useDocker) {
+            "/config/Output"
+        } else {
+            "Output"
+        }
+
+        val commandPrefix = if (useDocker) {
+            ""
+        } else {
+            command(parsedArgs) + " "
+        }
+
+        val baseCommand = (commandPrefix + "-n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
@@ -72,6 +87,7 @@ class CommandCreator {
             "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
             "$outputDir/${outputName(filename)}")
             .replace("  ", " ")
+            .trim()
 
         return if (useDocker) {
             "docker run --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
