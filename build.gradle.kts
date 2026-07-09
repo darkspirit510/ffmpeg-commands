@@ -27,6 +27,10 @@ tasks.withType<KotlinCompile> {
     }
 }
 
+tasks.withType<JavaCompile> {
+    options.release.set(8)
+}
+
 application {
     mainClass.set("CommandCreatorKt")
 }
