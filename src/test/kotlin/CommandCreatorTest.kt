@@ -729,6 +729,32 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `shows error message when given file does not exist`() {
+        val result = CommandCreator(
+            FakeWrapper(
+                """
+                Lorem Ipsum Dolor.
+                Error opening input files: No such file or directory
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals("[Error] File somefile.mkv does not exist or can't be accessed.", result)
+    }
+
+    @Test
+    fun `shows error message with usage info when parameter is missing`() {
+        val result = CommandCreator(
+            FakeWrapper("")
+        ).doAction(emptyArray())
+
+        assertEquals(
+            "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]",
+            result
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(

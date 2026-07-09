@@ -1,5 +1,4 @@
 import java.util.regex.Pattern
-import kotlin.text.contains
 
 fun main(args: Array<String>) {
     println(CommandCreator().doAction(args))
@@ -11,8 +10,10 @@ private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
 private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
-private const val ALIAS="alias"
-private const val DOCKER="docker"
+private const val ALIAS = "alias"
+private const val DOCKER = "docker"
+
+private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 
 class CommandCreator {
 
@@ -41,6 +42,10 @@ class CommandCreator {
     }
 
     fun doAction(args: Array<String>): String {
+        if (args.isEmpty()) {
+            return "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]"
+        }
+
         val parsedArgs = parseArgs(args)
 
         if (parsedArgs.contains(ALIAS) && parsedArgs.contains(DOCKER)) {
@@ -49,8 +54,13 @@ class CommandCreator {
 
         val takeLanguages = languageList(parsedArgs).distinct()
 
-        val streams = ffmpegWrapper
-            .read(args[0])
+        val ffmpegResult = ffmpegWrapper.read(args[0])
+
+        if (ffmpegResult.any { it.contains(FILE_DOES_NOT_EXIST) }) {
+            return "[Error] File ${args[0]} does not exist or can't be accessed."
+        }
+
+        val streams = ffmpegResult
             .asSequence()
             .map { it.trim() }
             .filter { it.contains("Stream") }
