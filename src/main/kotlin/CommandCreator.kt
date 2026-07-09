@@ -46,10 +46,14 @@ class CommandCreator {
             return "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]"
         }
 
-        val parsedArgs = parseArgs(args)
+        val parsedArgs = try {
+            parseArgs(args)
+        } catch (e: IllegalArgumentException) {
+            return "[Error] ${e.message}"
+        }
 
         if (parsedArgs.contains(ALIAS) && parsedArgs.contains(DOCKER)) {
-            throw IllegalArgumentException("Cannot use alias and docker options together")
+            return "[Error] Cannot use alias and docker options together"
         }
 
         val takeLanguages = languageList(parsedArgs).distinct()
@@ -59,6 +63,9 @@ class CommandCreator {
         if (ffmpegResult.any { it.contains(FILE_DOES_NOT_EXIST) }) {
             return "[Error] File ${args[0]} does not exist or can't be accessed."
         }
+
+        val missingLanguageError = checkMissingLanguage(ffmpegResult, parsedArgs)
+        if (missingLanguageError != null) return missingLanguageError
 
         val streams = ffmpegResult
             .asSequence()
@@ -122,6 +129,28 @@ class CommandCreator {
         return knownParameters
             .associateWith { args.option(it) }
             .filter { it.value != null } as Map<String, String>
+    }
+
+    private fun checkMissingLanguage(lines: List<String>, parsedArgs: Map<String, String>): String? {
+        val ignoreAudio = parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) ||
+            parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE) ||
+            parsedArgs.contains(SET_AUDIO_LANGUAGES)
+        val ignoreSubtitle = parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (!trimmed.contains("Stream") || trimmed.startsWith("Guessed")) continue
+            if (Stream.patternWithLang.matcher(trimmed).matches()) continue
+
+            val matcher = Stream.patternWithoutLang.matcher(trimmed)
+            if (matcher.matches()) {
+                when (matcher.group("type")) {
+                    "Audio" -> if (!ignoreAudio) return "[Error] Missing language for audio stream"
+                    "Subtitle" -> if (!ignoreSubtitle) return "[Error] Missing language for subtitle stream"
+                }
+            }
+        }
+        return null
     }
 
     private fun attachmentMapping(streams: Map<String, List<Stream>>) = if (streams.keys.contains("Attachment")) {
@@ -278,9 +307,9 @@ data class Stream(
     val codec: String
 ) {
     companion object {
-        private val patternWithLang = Pattern
+        val patternWithLang = Pattern
             .compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
-        private val patternWithoutLang =
+        val patternWithoutLang =
             Pattern.compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
@@ -295,7 +324,7 @@ data class Stream(
                                     .apply {
                                         if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
                                             if (!ignoreMissingLanguage(group("type"), parsedArgs)) {
-                                                throw IllegalArgumentException("Missing language for stream ($raw)")
+                                                return null
                                             }
                                         }
                                     }

@@ -1,6 +1,5 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 
 class CommandCreatorTest {
@@ -221,21 +220,23 @@ class CommandCreatorTest {
 
     @Test
     fun `fails on missing language for audio`() {
-        assertThrows<IllegalArgumentException> {
+        assertEquals(
+            "[Error] Missing language for audio stream",
             CommandCreator(
                 FakeWrapper(
                     """
-            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-        """
+                    Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                    Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+                """
                 )
             ).doAction(arrayOf("somefile.mkv"))
-        }
+        )
     }
 
     @Test
     fun `fails on missing language for subtitle`() {
-        assertThrows<IllegalArgumentException> {
+        assertEquals(
+            "[Error] Missing language for subtitle stream",
             CommandCreator(
                 FakeWrapper(
                     """
@@ -245,7 +246,7 @@ class CommandCreatorTest {
         """
                 )
             ).doAction(arrayOf("somefile.mkv"))
-        }
+        )
     }
 
     @Test
@@ -442,7 +443,8 @@ class CommandCreatorTest {
 
     @Test
     fun `fails on unknown option`() {
-        val exception = assertThrows<IllegalArgumentException> {
+        assertEquals(
+            "[Error] Unknown option someOption",
             CommandCreator(
                 FakeWrapper(
                     """
@@ -451,9 +453,7 @@ class CommandCreatorTest {
         """
                 )
             ).doAction(arrayOf("somefile.mkv", "-someOption=someValue"))
-        }
-
-        assertEquals("Unknown option someOption", exception.message)
+        )
     }
 
     @Test
@@ -647,12 +647,11 @@ class CommandCreatorTest {
 
     @Test
     fun `rejects combination of parameters alias and docker`() {
-        val exception = assertThrows<IllegalArgumentException> {
+        assertEquals(
+            "[Error] Cannot use alias and docker options together",
             CommandCreator(FakeWrapper(""))
                 .doAction(arrayOf("somefile.mkv", "-docker", "-alias=customffmpeg"))
-        }
-
-        assertEquals("Cannot use alias and docker options together", exception.message)
+        )
     }
 
     @Test
