@@ -10,6 +10,7 @@ private const val DROP_SUBTITLES = "dropSubtitles"
 private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
+private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
 private const val ALIAS="alias"
 private const val DOCKER="docker"
 
@@ -25,7 +26,8 @@ class CommandCreator {
         DROP_SUBTITLES,
         IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
-        PRESERVE_MISSING_AUDIO_LANGUAGE
+        PRESERVE_MISSING_AUDIO_LANGUAGE,
+        SET_AUDIO_LANGUAGES
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -144,20 +146,65 @@ class CommandCreator {
         streams: Map<String, List<Stream>>,
         takeLanguages: List<String>,
         parsedArgs: Map<String, String>
-    ): String = takeLanguages
-        .flatMap { lang ->
-            audioMappingsFor(streams["Audio"]?.mapIndexedNotNull { idx, it ->
-                if (it.lang == lang || it.lang == "???" && parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)) {
-                    Pair(idx, it)
-                } else {
-                    null
+    ): String {
+        val audioStreams = streams["Audio"] ?: emptyList()
+        val setAudioLangs = parsedArgs[SET_AUDIO_LANGUAGES]?.split(",") ?: emptyList()
+
+        val noLangAssignments = mutableMapOf<Int, String>()
+        if (setAudioLangs.isNotEmpty()) {
+            var langIdx = 0
+            audioStreams.forEachIndexed { idx, stream ->
+                if (stream.lang == "???" && langIdx < setAudioLangs.size) {
+                    noLangAssignments[idx] = setAudioLangs[langIdx]
+                    langIdx++
                 }
-            } ?: emptyList()
-            )
+            }
         }
-        .toSet()
-        .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
-        .joinToString(" ")
+
+        val baseMappings = takeLanguages
+            .flatMap { lang ->
+                audioMappingsFor(audioStreams.mapIndexedNotNull { idx, stream ->
+                    if (stream.lang == lang ||
+                        (stream.lang == "???" && parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)) ||
+                        (stream.lang == "???" && noLangAssignments[idx] == lang)
+                    ) {
+                        Pair(idx, stream)
+                    } else {
+                        null
+                    }
+                })
+            }
+            .distinct()
+            .toList()
+
+        val mappings = if (setAudioLangs.isNotEmpty()) {
+            baseMappings.sortedBy { it.index }
+        } else {
+            baseMappings
+        }
+
+        val audioPart = mappings
+            .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
+            .joinToString(" ")
+
+        val metadataPart = if (noLangAssignments.isNotEmpty()) {
+            noLangAssignments.entries
+                .sortedBy { it.key }
+                .mapNotNull { (streamIdx, lang) ->
+                    val mappingIdx = mappings.indexOfFirst { it.index == streamIdx }
+                    if (mappingIdx >= 0) {
+                        "-metadata:s:a:$mappingIdx language=$lang"
+                    } else {
+                        null
+                    }
+                }
+                .joinToString(" ")
+        } else ""
+
+        return listOfNotNull(audioPart, metadataPart)
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+    }
 
     private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>): List<Mapping> {
         val audioMappings = mutableListOf<Mapping>()
@@ -265,7 +312,7 @@ data class Stream(
         private fun ignoreMissingLanguage(type: String?, parsedArgs: Map<String, String>) = when (type) {
             "Audio" -> parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) || parsedArgs.contains(
                 PRESERVE_MISSING_AUDIO_LANGUAGE
-            )
+            ) || parsedArgs.contains(SET_AUDIO_LANGUAGES)
 
             "Subtitle" -> parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
 

@@ -656,6 +656,79 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `sets single language for missing audio language`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0: Video: hevc (Main), yuv420p(tv), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, start 0.088000 (default)
+                Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-setAudioLanguages=ger"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-metadata:s:a:0 language=ger " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `sets multiple language for missing audio language`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0: Video: hevc (Main), yuv420p(tv), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, start 0.088000 (default)
+                Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+                Stream #0:2: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-setAudioLanguages=ger,eng"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:1 -c:a:1 copy " +
+                "-metadata:s:a:0 language=ger " +
+                "-metadata:s:a:1 language=eng " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `sets multiple language for missing audio language when some audio channels have languages`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0: Video: hevc (Main), yuv420p(tv), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, start 0.088000 (default)
+                Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+                Stream #0:2: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+                Stream #0:3(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+                Stream #0:4: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-setAudioLanguages=ger,eng"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:1 -c:a:1 copy " +
+                "-map 0:a:2 -c:a:2 copy " +
+                "-map 0:a:3 -c:a:3 copy " +
+                "-metadata:s:a:1 language=ger " +
+                "-metadata:s:a:3 language=eng " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `handles real world example (1)`() {
         val command = CommandCreator(
             FakeWrapper(
