@@ -193,7 +193,7 @@ class CommandCreatorTest {
             Stream #0:2(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
             """
             )
-        ).doAction(arrayOf("somefile.mkv", "-preserveMissingAudioLanguage"))
+        ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
@@ -221,7 +221,7 @@ class CommandCreatorTest {
     @Test
     fun `fails on missing language for audio`() {
         assertEquals(
-            "[Error] Missing language for audio stream",
+            "[Error] Missing language for audio stream. Use -setAudioLanguages parameter to specify languages for audio streams without language tags.",
             CommandCreator(
                 FakeWrapper(
                     """
@@ -457,29 +457,6 @@ class CommandCreatorTest {
     }
 
     @Test
-    fun `ignores missing audio language streams via option`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
-            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            Stream #0:2: Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            Stream #0:3(eng): Subtitle: hdmv_pgs_subtitle, 1920x1080
-            """
-            )
-        ).doAction(arrayOf("somefile.mkv", "-ignoreMissingAudioLanguage"))
-
-        assertEquals(
-            "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
-            command
-        )
-    }
-
-    @Test
     fun `ignores missing subtitle language streams via option`() {
         val command = CommandCreator(
             FakeWrapper(
@@ -497,47 +474,6 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
-            command
-        )
-    }
-
-    @Test
-    fun `ignores missing audio language and copies it anyway via option`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
-            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            """
-            )
-        ).doAction(arrayOf("somefile.mkv", "-preserveMissingAudioLanguage"))
-
-        assertEquals(
-            "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
-            command
-        )
-    }
-
-    @Test
-    fun `ignores missing audio language and copies it anyway via option, transforms audio on missing ac3 stream`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
-            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1: Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
-        """
-            )
-        ).doAction(arrayOf("somefile.mkv", "-preserveMissingAudioLanguage"))
-
-        assertEquals(
-            "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 ac3 " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
             command
         )

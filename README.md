@@ -22,9 +22,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `additionalLanguages` | Comma-separated list of additional languages to include (default: deu, ger, eng) |
 | `docker` | Run the command in docker mode |
 | `dropSubtitles` | Drop all subtitles from output |
-| `ignoreMissingAudioLanguage` | Ignore streams with missing audio language |
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language |
-| `preserveMissingAudioLanguage` | Preserve streams with missing audio language |
 | `setAudioLanguages` | Comma-separated list of languages to assign to audio streams without language information |
 
 ## Behavior
