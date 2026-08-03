@@ -6,9 +6,7 @@ fun main(args: Array<String>) {
 
 private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
 private const val DROP_SUBTITLES = "dropSubtitles"
-private const val IGNORE_MISSING_AUDIO_LANGUAGE = "ignoreMissingAudioLanguage"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
-private const val PRESERVE_MISSING_AUDIO_LANGUAGE = "preserveMissingAudioLanguage"
 private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
 private const val ALIAS = "alias"
 private const val DOCKER = "docker"
@@ -25,9 +23,7 @@ class CommandCreator {
         ADDITIONAL_LANGUAGES,
         DOCKER,
         DROP_SUBTITLES,
-        IGNORE_MISSING_AUDIO_LANGUAGE,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
-        PRESERVE_MISSING_AUDIO_LANGUAGE,
         SET_AUDIO_LANGUAGES
     )
 
@@ -132,9 +128,7 @@ class CommandCreator {
     }
 
     private fun checkMissingLanguage(lines: List<String>, parsedArgs: Map<String, String>): String? {
-        val ignoreAudio = parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) ||
-            parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE) ||
-            parsedArgs.contains(SET_AUDIO_LANGUAGES)
+        val hasSetAudioLanguages = parsedArgs.contains(SET_AUDIO_LANGUAGES)
         val ignoreSubtitle = parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
 
         for (line in lines) {
@@ -145,8 +139,13 @@ class CommandCreator {
             val matcher = Stream.patternWithoutLang.matcher(trimmed)
             if (matcher.matches()) {
                 when (matcher.group("type")) {
-                    "Audio" -> if (!ignoreAudio) return "[Error] Missing language for audio stream"
-                    "Subtitle" -> if (!ignoreSubtitle) return "[Error] Missing language for subtitle stream"
+                    "Audio" -> if (!hasSetAudioLanguages) {
+                        return "[Error] Missing language for audio stream. Use -setAudioLanguages parameter to specify languages for audio streams without language tags."
+                    }
+
+                    "Subtitle" -> if (!ignoreSubtitle) {
+                        return "[Error] Missing language for subtitle stream"
+                    }
                 }
             }
         }
@@ -204,7 +203,6 @@ class CommandCreator {
             .flatMap { lang ->
                 audioMappingsFor(audioStreams.mapIndexedNotNull { idx, stream ->
                     if (stream.lang == lang ||
-                        (stream.lang == "???" && parsedArgs.contains(PRESERVE_MISSING_AUDIO_LANGUAGE)) ||
                         (stream.lang == "???" && noLangAssignments[idx] == lang)
                     ) {
                         Pair(idx, stream)
@@ -349,9 +347,7 @@ data class Stream(
         }
 
         private fun ignoreMissingLanguage(type: String?, parsedArgs: Map<String, String>) = when (type) {
-            "Audio" -> parsedArgs.contains(IGNORE_MISSING_AUDIO_LANGUAGE) || parsedArgs.contains(
-                PRESERVE_MISSING_AUDIO_LANGUAGE
-            ) || parsedArgs.contains(SET_AUDIO_LANGUAGES)
+            "Audio" -> parsedArgs.contains(SET_AUDIO_LANGUAGES)
 
             "Subtitle" -> parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
 
