@@ -209,7 +209,7 @@ class CommandCreator {
                     } else {
                         null
                     }
-                })
+                }, setAudioLangs)
             }
             .distinct()
             .toList()
@@ -243,11 +243,17 @@ class CommandCreator {
             .joinToString(" ")
     }
 
-    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>): List<Mapping> {
+    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>, setAudioLangs: List<String>): List<Mapping> {
         val audioMappings = mutableListOf<Mapping>()
 
         sourceMappings.forEach {
             audioMappings.add(Mapping(it.first, it.second.codec, "copy"))
+        }
+
+        if (audioMappings.any { !it.codec.startsWith("ac3") } && setAudioLangs.isEmpty() && audioMappings.none { it.codec.startsWith("ac3") && !it.codec.endsWith("stereo, fltp, 192 kb/s") }) {
+            val lastNonAC3Index = audioMappings
+                .indexOf(audioMappings.last { !it.codec.startsWith("ac3") })
+            audioMappings.add(lastNonAC3Index + 1, audioMappings.first().copy(action = "ac3"))
         }
 
         return audioMappings

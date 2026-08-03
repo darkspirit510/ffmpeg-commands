@@ -596,7 +596,7 @@ class CommandCreatorTest {
             FakeWrapper(
                 """
                 Stream #0:0: Video: hevc (Main), yuv420p(tv), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, start 0.088000 (default)
-                Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+                Stream #0:1: Audio: mp3 (mp3float), 48000 Hz, stereo, fltp, 80 kb/s (default)
         """
             )
         ).doAction(arrayOf("somefile.mkv", "-setAudioLanguages=ger"))
