@@ -1,6 +1,7 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class CommandCreatorTest {
 
@@ -736,6 +737,32 @@ class CommandCreatorTest {
             "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]",
             result
         )
+    }
+
+    @Test
+    fun `main function exits with code 1 when parameter is missing`() {
+        val process = ProcessBuilder("java", "-jar", "build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar")
+            .redirectErrorStream(true)
+            .start()
+
+        val exitCode = process.waitFor()
+        val output = process.inputStream.bufferedReader().readText()
+
+        assertEquals(1, exitCode)
+        assertTrue(output.contains("[Error] Missing parameter filename"))
+    }
+
+    @Test
+    fun `main function exits with code 1 when file does not exist`() {
+        val process = ProcessBuilder("java", "-jar", "build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar", "nonexistent.mkv")
+            .redirectErrorStream(true)
+            .start()
+
+        val exitCode = process.waitFor()
+        val output = process.inputStream.bufferedReader().readText()
+
+        assertEquals(1, exitCode)
+        assertTrue(output.contains("[Error] File nonexistent.mkv does not exist"))
     }
 
     @Test

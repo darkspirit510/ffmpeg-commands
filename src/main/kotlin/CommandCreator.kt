@@ -1,7 +1,16 @@
 import java.util.regex.Pattern
 
+import kotlin.system.exitProcess
+
 fun main(args: Array<String>) {
-    println(CommandCreator().doAction(args))
+    val result = CommandCreator().doAction(args)
+
+    if (result.startsWith("[Error]")) {
+        println(result)
+        exitProcess(1)
+    }
+
+    println(result)
 }
 
 private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
