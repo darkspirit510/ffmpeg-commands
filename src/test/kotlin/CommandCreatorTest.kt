@@ -591,6 +591,55 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `rejects unstarted parameter without docker`() {
+        assertEquals(
+            "[Error] -unstarted parameter can only be used with -docker",
+            CommandCreator(FakeWrapper(""))
+                .doAction(arrayOf("somefile.mkv", "-unstarted"))
+        )
+    }
+
+    @Test
+    fun `creates unstarted docker container when unstarted parameter is set`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-docker", "-unstarted"))
+
+        assertEquals(
+            "docker create --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `creates unstarted docker container with escaped filename when unstarted parameter is set`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("testfile.mkv", "-docker", "-unstarted"))
+
+        assertEquals(
+            "docker create --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/testfile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/testfile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `sets single language for missing audio language`() {
         val command = CommandCreator(
             FakeWrapper(

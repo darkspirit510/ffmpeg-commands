@@ -1,6 +1,7 @@
 # ffmpeg-commands
 
-A Kotlin tool that generates ffmpeg conversion commands for video files. The tool analyzes input files and creates optimized transcoding commands with automatic language handling for audio and subtitles.
+A Kotlin tool that generates ffmpeg conversion commands for video files. The tool analyzes input files and creates
+optimized transcoding commands with automatic language handling for audio and subtitles.
 
 ## License
 
@@ -16,20 +17,22 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 
 ### Available Parameters
 
-| Parameter | Description |
-|----------|-------------|
-| `alias` | Set custom alias for ffmpeg command |
-| `additionalLanguages` | Comma-separated list of additional languages to include (default: deu, ger, eng) |
-| `docker` | Run the command in docker mode |
-| `dropSubtitles` | Drop all subtitles from output |
-| `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language |
-| `setAudioLanguages` | Comma-separated list of languages to assign to audio streams without language information |
+| Parameter                       | Description                                                                               |
+|---------------------------------|-------------------------------------------------------------------------------------------|
+| `alias`                         | Set custom alias for ffmpeg command                                                       |
+| `additionalLanguages`           | Comma-separated list of additional languages to include (default: deu, ger, eng)          |
+| `docker`                        | Create command to directly run in docker mode                                             |
+| `unstarted`                     | When used with `-docker`, creates a container but does not start it (requires `-docker`)  |
+| `dropSubtitles`                 | Drop all subtitles from output                                                            |
+| `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
+| `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
 
 ## Behavior
 
 - When no parameters are given, only German and English streams are considered for audio tracks.
 - Audio streams are always ordered: German, English, then all additional languages.
-- When no AC3 stream is present, the tool adds an AC3 transcoded stream as the last audio track. This is necessary because some devices (like LG TVs) do not support DTS playback.
+- When no AC3 stream is present, the tool adds an AC3 transcoded stream as the last audio track. This is necessary
+  because some devices (like LG TVs) do not support DTS playback.
 
 ## Building
 

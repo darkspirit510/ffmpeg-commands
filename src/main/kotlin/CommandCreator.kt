@@ -10,6 +10,7 @@ private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLangu
 private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
 private const val ALIAS = "alias"
 private const val DOCKER = "docker"
+private const val UNSTARTED = "unstarted"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 
@@ -24,7 +25,8 @@ class CommandCreator {
         DOCKER,
         DROP_SUBTITLES,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
-        SET_AUDIO_LANGUAGES
+        SET_AUDIO_LANGUAGES,
+        UNSTARTED
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -52,6 +54,10 @@ class CommandCreator {
             return "[Error] Cannot use alias and docker options together"
         }
 
+        if (parsedArgs.contains(UNSTARTED) && !parsedArgs.contains(DOCKER)) {
+            return "[Error] -unstarted parameter can only be used with -docker"
+        }
+
         val takeLanguages = languageList(parsedArgs).distinct()
 
         val ffmpegResult = ffmpegWrapper.read(args[0])
@@ -75,6 +81,7 @@ class CommandCreator {
 
         val filename = escape(args[0])
         val useDocker = parsedArgs.contains(DOCKER)
+        val useUnstarted = parsedArgs.contains(UNSTARTED)
 
         val inputFile = if (useDocker) {
             "/config/$filename"
@@ -105,7 +112,11 @@ class CommandCreator {
             .trim()
 
         return if (useDocker) {
-            "docker run --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+            if (useUnstarted) {
+                "docker create --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+            } else {
+                "docker run --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+            }
         } else {
             baseCommand
         }
