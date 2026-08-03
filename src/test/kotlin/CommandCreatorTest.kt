@@ -888,6 +888,27 @@ class CommandCreatorTest {
         )
     }
 
+    @Test
+    fun `sets language for mp3 audio stream without conversion`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0: Video: hevc (Main), yuv420p(tv), 640x464 [SAR 1:1 DAR 40:29], 23.98 fps, 23.98 tbr, 1k tbn, start 0.042000 (default)
+                Stream #0:1: Audio: mp3 (mp3float), 48000 Hz, stereo, fltp, 80 kb/s (default)
+            """
+            )
+        ).doAction(arrayOf("video.mkv", "-setAudioLanguages=ger"))
+
+        assertEquals(
+            "ffmpeg -n -i video.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-metadata:s:a:0 language=ger " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/video.mkv",
+            command
+        )
+    }
+
     class FakeWrapper(
         private val returnContent: String
     ) : FfmpegWrapper {
