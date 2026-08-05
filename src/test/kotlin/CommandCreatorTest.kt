@@ -554,7 +554,7 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv", "-docker"))
 
         assertEquals(
-            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
+            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
@@ -574,10 +574,70 @@ class CommandCreatorTest {
         ).doAction(arrayOf("Some File`s (2024).mkv", "-docker"))
 
         assertEquals(
-            "docker run --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/Some\\ File\\`s\\ \\(2024\\).mkv " +
+            """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/Some\ File\`s\ \(2024\).mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 """ +
+                """-map 0:a:0 -c:a:0 copy """ +
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/Some\ File\`s\ \(2024\).mkv""",
+            command
+        )
+    }
+
+    @Test
+    fun `uses docker wrapper with directory containing spaces`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("My Videos/file.mkv", "-docker"))
+
+        assertEquals(
+            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/file.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/Some\\ File\\`s\\ \\(2024\\).mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `uses docker wrapper with directory containing spaces and special chars`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("My & Videos (2024)/file`s.mkv", "-docker"))
+
+        assertEquals(
+            """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file\`s.mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 """ +
+                """-map 0:a:0 -c:a:0 copy """ +
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file\`s.mkv""",
+            command
+        )
+    }
+
+    @Test
+    fun `uses docker wrapper with unstarted and directory containing spaces`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("My Videos/file.mkv", "-docker", "-unstarted"))
+
+        assertEquals(
+            """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file.mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 """ +
+                """-map 0:a:0 -c:a:0 copy """ +
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file.mkv""",
             command
         )
     }
@@ -612,7 +672,7 @@ class CommandCreatorTest {
         ).doAction(arrayOf("somefile.mkv", "-docker", "-unstarted"))
 
         assertEquals(
-            "docker create --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
+            "docker create --rm -it -v \"$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
@@ -632,7 +692,7 @@ class CommandCreatorTest {
         ).doAction(arrayOf("testfile.mkv", "-docker", "-unstarted"))
 
         assertEquals(
-            "docker create --rm -it -v $(pwd):/config linuxserver/ffmpeg -n -i /config/testfile.mkv " +
+            "docker create --rm -it -v \"$(pwd)\":/config linuxserver/ffmpeg -n -i /config/testfile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/testfile.mkv",

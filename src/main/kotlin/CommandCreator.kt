@@ -93,7 +93,7 @@ class CommandCreator {
         val useUnstarted = parsedArgs.contains(UNSTARTED)
 
         val inputFile = if (useDocker) {
-            "/config/$filename"
+            "/config/${filename.substringAfterLast("/")}"
         } else {
             filename
         }
@@ -110,21 +110,24 @@ class CommandCreator {
             command(parsedArgs) + " "
         }
 
+        val outputFilename = outputName(filename.substringAfterLast("/"))
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
             "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
-            "$outputDir/${outputName(filename)}")
+            "$outputDir/$outputFilename")
             .replace("  ", " ")
             .trim()
 
         return if (useDocker) {
+            val volumePath = "\"\$(pwd)\""
+            
             if (useUnstarted) {
-                "docker create --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+                "docker create --rm -it -v $volumePath:/config linuxserver/ffmpeg $baseCommand"
             } else {
-                "docker run --rm -it -v \$(pwd):/config linuxserver/ffmpeg $baseCommand"
+                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $baseCommand"
             }
         } else {
             baseCommand
@@ -186,6 +189,14 @@ class CommandCreator {
         }
 
         return escapedFilename
+    }
+
+    private fun quotePath(path: String): String {
+        // Only quote if the path contains unescaped spaces
+        // The escape() function already handles special characters like backticks, parentheses, etc.
+        val hasUnescapedSpace = path.contains(" ") && !path.contains("\\ ")
+        
+        return if (hasUnescapedSpace) "\"$path\"" else path
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
