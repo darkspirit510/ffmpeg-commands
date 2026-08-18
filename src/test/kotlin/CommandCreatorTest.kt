@@ -643,6 +643,46 @@ class CommandCreatorTest {
     }
 
     @Test
+    fun `adds max_interleave_delta 0 when fixClusterTimestampWarning parameter is set`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-fixClusterTimestampWarning"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `adds max_interleave_delta 0 with docker when fixClusterTimestampWarning parameter is set`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-docker", "-fixClusterTimestampWarning"))
+
+        assertEquals(
+            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
     fun `rejects combination of parameters alias and docker`() {
         assertEquals(
             "[Error] Cannot use alias and docker options together",
