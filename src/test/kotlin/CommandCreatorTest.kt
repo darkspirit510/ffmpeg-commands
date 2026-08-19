@@ -24,7 +24,7 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:2 -c:a:0 copy " +
                 "-map 0:a:1 -c:a:1 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -44,7 +44,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mp4 " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -64,7 +64,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i Some\\ File\\`s\\ to\\ convert\\ \\(1234\\)\\?\\!.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 " +
                 "Output/Some\\ File\\`s\\ to\\ convert\\ \\(1234\\)\\?\\!.mkv",
             command
         )
@@ -93,7 +93,7 @@ class CommandCreatorTest {
                 "-map 0:a:0 -c:a:3 copy " +
                 "-map 0:a:1 -c:a:4 copy " +
                 "-map 0:a:0 -c:a:5 ac3 " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -119,7 +119,7 @@ class CommandCreatorTest {
                 "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:a:1 -c:a:2 copy " +
                 "-map 0:a:2 -c:a:3 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -149,7 +149,7 @@ class CommandCreatorTest {
                 "-map 0:a:0 -c:a:4 copy " +
                 "-map 0:a:1 -c:a:5 copy " +
                 "-map 0:a:0 -c:a:6 ac3 " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -179,7 +179,7 @@ class CommandCreatorTest {
                 "-map 0:s:5 -c:s:1 copy " +
                 "-map 0:s:0 -c:s:2 copy " +
                 "-map 0:s:4 -c:s:3 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -200,7 +200,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -266,7 +266,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -296,7 +296,7 @@ class CommandCreatorTest {
                 "-map 0:s:1 -c:s:0 copy " +
                 "-map 0:s:2 -c:s:1 copy " +
                 "-map 0:s:0 -c:s:2 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -316,7 +316,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 copy " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -348,7 +348,7 @@ class CommandCreatorTest {
                 "-map 0:s:2 -c:s:0 copy " +
                 "-map 0:s:0 -c:s:1 copy " +
                 "-map 0:s:1 -c:s:2 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -381,7 +381,7 @@ class CommandCreatorTest {
                 "-map 0:s:2 -c:s:0 copy " +
                 "-map 0:s:0 -c:s:1 copy " +
                 "-map 0:s:1 -c:s:2 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -413,7 +413,7 @@ class CommandCreatorTest {
                 "-map 0:s:2 -c:s:0 copy " +
                 "-map 0:s:0 -c:s:1 copy " +
                 "-map 0:s:1 -c:s:2 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -437,7 +437,7 @@ class CommandCreatorTest {
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:t -c:t copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -475,7 +475,7 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -496,7 +496,7 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 ac3 " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -517,7 +517,7 @@ class CommandCreatorTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -537,7 +537,7 @@ class CommandCreatorTest {
             "somealias -n -i somefile.mp4 " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -557,7 +557,7 @@ class CommandCreatorTest {
             "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
     }
@@ -577,7 +577,7 @@ class CommandCreatorTest {
             """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/Some\ File\`s\ \(2024\).mkv """ +
                 """-map 0:v:0 -c:v:0 libsvtav1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
-                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/Some\ File\`s\ \(2024\).mkv""",
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/Some\ File\`s\ \(2024\).mkv""",
             command
         )
     }
@@ -597,7 +597,7 @@ class CommandCreatorTest {
             "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/file.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file.mkv",
             command
         )
     }
@@ -617,7 +617,7 @@ class CommandCreatorTest {
             """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file\`s.mkv """ +
                 """-map 0:v:0 -c:v:0 libsvtav1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
-                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file\`s.mkv""",
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file\`s.mkv""",
             command
         )
     }
@@ -637,47 +637,7 @@ class CommandCreatorTest {
             """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file.mkv """ +
                 """-map 0:v:0 -c:v:0 libsvtav1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
-                """-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/file.mkv""",
-            command
-        )
-    }
-
-    @Test
-    fun `adds max_interleave_delta 0 when fixClusterTimestampWarning parameter is set`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
-                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            """
-            )
-        ).doAction(arrayOf("somefile.mkv", "-fixClusterTimestampWarning"))
-
-        assertEquals(
-            "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
-            command
-        )
-    }
-
-    @Test
-    fun `adds max_interleave_delta 0 with docker when fixClusterTimestampWarning parameter is set`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
-                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
-            """
-            )
-        ).doAction(arrayOf("somefile.mkv", "-docker", "-fixClusterTimestampWarning"))
-
-        assertEquals(
-            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file.mkv""",
             command
         )
     }
@@ -715,7 +675,7 @@ class CommandCreatorTest {
             "docker create --rm -it -v \"$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
     }
@@ -735,7 +695,7 @@ class CommandCreatorTest {
             "docker create --rm -it -v \"$(pwd)\":/config linuxserver/ffmpeg -n -i /config/testfile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 /config/Output/testfile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/testfile.mkv",
             command
         )
     }
@@ -756,7 +716,7 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-metadata:s:a:0 language=ger " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -780,7 +740,7 @@ class CommandCreatorTest {
                 "-map 0:a:1 -c:a:1 copy " +
                 "-metadata:s:a:0 language=ger " +
                 "-metadata:s:a:1 language=eng " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -808,7 +768,7 @@ class CommandCreatorTest {
                 "-map 0:a:3 -c:a:3 copy " +
                 "-metadata:s:a:1 language=ger " +
                 "-metadata:s:a:3 language=eng " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -933,7 +893,7 @@ class CommandCreatorTest {
                 "-map 0:s:15 -c:s:6 copy " +
                 "-map 0:s:16 -c:s:7 copy " +
                 "-map 0:s:27 -c:s:8 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -971,7 +931,7 @@ class CommandCreatorTest {
                 "-map 0:a:2 -c:a:7 ac3 " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -995,7 +955,7 @@ class CommandCreatorTest {
                 "-map 0:a:1 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -1031,7 +991,7 @@ class CommandCreatorTest {
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-map 0:t -c:t copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -1059,7 +1019,7 @@ class CommandCreatorTest {
                 "-map 0:a:1 -c:a:2 copy " +
                 "-map 0:a:1 -c:a:3 ac3 " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/somefile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -1080,7 +1040,7 @@ class CommandCreatorTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-metadata:s:a:0 language=ger " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 Output/video.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/video.mkv",
             command
         )
     }

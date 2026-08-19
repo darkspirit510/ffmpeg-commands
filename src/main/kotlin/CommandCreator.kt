@@ -17,7 +17,6 @@ private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
 private const val DROP_SUBTITLES = "dropSubtitles"
 private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
 private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
-private const val FIX_CLUSTER_TIMESTAMP_WARNING = "fixClusterTimestampWarning"
 private const val ALIAS = "alias"
 private const val DOCKER = "docker"
 private const val UNSTARTED = "unstarted"
@@ -34,7 +33,6 @@ class CommandCreator {
         ADDITIONAL_LANGUAGES,
         DOCKER,
         DROP_SUBTITLES,
-        FIX_CLUSTER_TIMESTAMP_WARNING,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
         SET_AUDIO_LANGUAGES,
         UNSTARTED
@@ -93,7 +91,6 @@ class CommandCreator {
         val filename = escape(args[0])
         val useDocker = parsedArgs.contains(DOCKER)
         val useUnstarted = parsedArgs.contains(UNSTARTED)
-        val fixClusterTimestamp = parsedArgs.contains(FIX_CLUSTER_TIMESTAMP_WARNING)
 
         val inputFile = if (useDocker) {
             "/config/${filename.substringAfterLast("/")}"
@@ -113,19 +110,12 @@ class CommandCreator {
             command(parsedArgs) + " "
         }
 
-        val clusterTimestampFix = if (fixClusterTimestamp) {
-            "-max_interleave_delta 0 "
-        } else {
-            ""
-        }
-
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
-            "-crf 17 -preset 2 -max_muxing_queue_size 9999 " +
-            clusterTimestampFix +
+            "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 " +
             "$outputDir/${outputName(filename.substringAfterLast("/"))}")
             .replace("  ", " ")
             .trim()

@@ -25,7 +25,6 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `unstarted`                     | When used with `-docker`, creates a container but does not start it (requires `-docker`)  |
 | `dropSubtitles`                 | Drop all subtitles from output                                                            |
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
-| `fixClusterTimestampWarning`    | Add `-max_interleave_delta 0` to prevent ffmpeg from creating new clusters when timestamps are slightly out of order, which can cause playback issues on some devices |
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
 
 ## Behavior
