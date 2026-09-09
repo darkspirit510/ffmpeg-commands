@@ -20,6 +20,7 @@ private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
 private const val ALIAS = "alias"
 private const val DOCKER = "docker"
 private const val UNSTARTED = "unstarted"
+private const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 
@@ -35,7 +36,8 @@ class CommandCreator {
         DROP_SUBTITLES,
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
         SET_AUDIO_LANGUAGES,
-        UNSTARTED
+        UNSTARTED,
+        MAX_INTERLEAVE_DELTA
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -110,12 +112,17 @@ class CommandCreator {
             command(parsedArgs) + " "
         }
 
+        val interleaveDelta = parsedArgs[MAX_INTERLEAVE_DELTA]?.toLongOrNull()
+            ?.takeIf { it >= 0 }
+            ?.times(1000)
+            ?: 100000L
+
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
-            "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 " +
+            "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
             "$outputDir/${outputName(filename.substringAfterLast("/"))}")
             .replace("  ", " ")
             .trim()
@@ -144,9 +151,30 @@ class CommandCreator {
                 }
             }
 
-        return knownParameters
+        val parsed = knownParameters
             .associateWith { args.option(it) }
             .filter { it.value != null } as Map<String, String>
+
+        validateMaxInterleaveDelta(parsed)
+
+        return parsed
+    }
+
+    private fun validateMaxInterleaveDelta(parsedArgs: Map<String, String>) {
+        val value = parsedArgs[MAX_INTERLEAVE_DELTA]
+        if (value != null) {
+            if (value.isEmpty()) {
+                throw IllegalArgumentException("maxInterleaveDelta cannot be empty")
+            }
+            try {
+                val num = value.toLong()
+                if (num < 0) {
+                    throw IllegalArgumentException("maxInterleaveDelta must be non-negative")
+                }
+            } catch (e: NumberFormatException) {
+                throw IllegalArgumentException("maxInterleaveDelta must be an integer")
+            }
+        }
     }
 
     private fun checkMissingLanguage(lines: List<String>, parsedArgs: Map<String, String>): String? {
@@ -199,7 +227,7 @@ class CommandCreator {
         if (streams["Video"]!!.first().codec.startsWith("av1")) {
             "copy"
         } else {
-            "libsvtav1"
+            "libsvtav1 -g 240 -keyint_min 240"
         }
 
     private fun audioMappings(

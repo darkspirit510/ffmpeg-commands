@@ -26,6 +26,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `dropSubtitles`                 | Drop all subtitles from output                                                            |
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
+| `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 100)                           |
 
 ## Behavior
 
@@ -33,6 +34,11 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 - Audio streams are always ordered: German, English, then all additional languages.
 - When no AC3 stream is present, the tool adds an AC3 transcoded stream as the last audio track. This is necessary
   because some devices (like LG TVs) do not support DTS playback.
+
+Note: The maxInterleaveDelta parameter controls how ffmpeg interleaves audio and video packets.
+The default value of 100ms prevents muxer deadlocks with many audio tracks while maintaining
+efficient file structure. If you experience "starting new cluster" spam, you may need to
+reduce this value. See [this link](https://www.reddit.com/r/ffmpeg/comments/efddfs/starting_new_cluster_due_to_timestamp/) for more information.
 
 ## Building
 
