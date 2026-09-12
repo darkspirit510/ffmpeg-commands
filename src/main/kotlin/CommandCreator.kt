@@ -1,5 +1,3 @@
-import java.util.regex.Pattern
-
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
@@ -13,14 +11,15 @@ fun main(args: Array<String>) {
     println(result)
 }
 
-private const val ADDITIONAL_LANGUAGES = "additionalLanguages"
-private const val DROP_SUBTITLES = "dropSubtitles"
-private const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
-private const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
-private const val ALIAS = "alias"
-private const val DOCKER = "docker"
-private const val UNSTARTED = "unstarted"
-private const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
+const val ADDITIONAL_LANGUAGES = "additionalLanguages"
+const val DROP_SUBTITLES = "dropSubtitles"
+const val IGNORE_MISSING_SUBTITLE_LANGUAGE = "ignoreMissingSubtitleLanguage"
+const val SET_AUDIO_LANGUAGES = "setAudioLanguages"
+const val ALIAS = "alias"
+const val DOCKER = "docker"
+const val UNSTARTED = "unstarted"
+const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
+const val TWO_PASS_TRANSCODE = "twoPassTranscode"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 
@@ -37,7 +36,8 @@ class CommandCreator {
         IGNORE_MISSING_SUBTITLE_LANGUAGE,
         SET_AUDIO_LANGUAGES,
         UNSTARTED,
-        MAX_INTERLEAVE_DELTA
+        MAX_INTERLEAVE_DELTA,
+        TWO_PASS_TRANSCODE
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -115,7 +115,44 @@ class CommandCreator {
         val interleaveDelta = parsedArgs[MAX_INTERLEAVE_DELTA]?.toLongOrNull()
             ?.takeIf { it >= 0 }
             ?.times(1000)
-            ?: 100000L
+            ?: 0L
+
+        val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE)
+
+        if (useTwoPass) {
+            val videoOutputName = outputName(filename.substringAfterLast("/"))
+            val videoOutputFile = "$outputDir/${videoOutputName.substringBeforeLast(".")}_video.mkv"
+            val finalOutputFile = "$outputDir/$videoOutputName"
+
+            val videoCommand = (commandPrefix + "-n -i $inputFile " +
+                "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
+                "-crf 17 -preset 2 -f matroska " +
+                "$videoOutputFile").replace("  ", " ").trim()
+
+            val audioCommand = (commandPrefix + "-n -i $inputFile -i $videoOutputFile " +
+                "-map 1:v:0 -c:v:0 copy " +
+                "${audioMappings(streams, takeLanguages, parsedArgs)} " +
+                "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
+                attachmentMapping(streams) +
+                "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+                "$finalOutputFile").replace("  ", " ").trim()
+
+            val finalVideoCommand = if (useDocker) {
+                val volumePath = "\"\$(pwd)\""
+                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $videoCommand"
+            } else {
+                videoCommand
+            }
+
+            val finalAudioCommand = if (useDocker) {
+                val volumePath = "\"\$(pwd)\""
+                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $audioCommand"
+            } else {
+                audioCommand
+            }
+
+            return "$finalVideoCommand\n$finalAudioCommand"
+        }
 
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
             "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
@@ -162,12 +199,15 @@ class CommandCreator {
 
     private fun validateMaxInterleaveDelta(parsedArgs: Map<String, String>) {
         val value = parsedArgs[MAX_INTERLEAVE_DELTA]
+
         if (value != null) {
             if (value.isEmpty()) {
                 throw IllegalArgumentException("maxInterleaveDelta cannot be empty")
             }
+
             try {
                 val num = value.toLong()
+
                 if (num < 0) {
                     throw IllegalArgumentException("maxInterleaveDelta must be non-negative")
                 }
@@ -351,67 +391,3 @@ private fun Array<String>.option(parameter: String): String? {
         }
     }
 }
-
-data class Stream(
-    val index: Int,
-    val lang: String,
-    val type: String,
-    val codec: String
-) {
-    companion object {
-        val patternWithLang = Pattern
-            .compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?\((?<lang>\w+)\): (?<type>\w+): (?<codec>.*)""")
-        val patternWithoutLang =
-            Pattern.compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
-
-        fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
-            with(
-                patternWithLang
-                    .matcher(raw)
-                    .apply {
-                        if (!matches()) {
-                            with(
-                                patternWithoutLang
-                                    .matcher(raw)
-                                    .apply {
-                                        if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
-                                            if (!ignoreMissingLanguage(group("type"), parsedArgs)) {
-                                                return null
-                                            }
-                                        }
-                                    }
-                            ) {
-                                return Stream(
-                                    index = group("index").toInt(),
-                                    lang = "???",
-                                    type = group("type"),
-                                    codec = group("codec")
-                                )
-                            }
-                        }
-                    }
-            ) {
-                return Stream(
-                    index = group("index").toInt(),
-                    lang = group("lang"),
-                    type = group("type"),
-                    codec = group("codec")
-                )
-            }
-        }
-
-        private fun ignoreMissingLanguage(type: String?, parsedArgs: Map<String, String>) = when (type) {
-            "Audio" -> parsedArgs.contains(SET_AUDIO_LANGUAGES)
-
-            "Subtitle" -> parsedArgs.contains(IGNORE_MISSING_SUBTITLE_LANGUAGE)
-
-            else -> true
-        }
-    }
-}
-
-data class Mapping(
-    val index: Int,
-    val codec: String,
-    val action: String
-)

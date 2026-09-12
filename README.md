@@ -26,7 +26,8 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `dropSubtitles`                 | Drop all subtitles from output                                                            |
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
-| `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 100)                           |
+| `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 0)                              |
+| `twoPassTranscode`              | Generate two separate commands for two-pass transcoding (video first, then audio+merge)   |
 
 ## Behavior
 
@@ -35,10 +36,16 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 - When no AC3 stream is present, the tool adds an AC3 transcoded stream as the last audio track. This is necessary
   because some devices (like LG TVs) do not support DTS playback.
 
-Note: The maxInterleaveDelta parameter controls how ffmpeg interleaves audio and video packets.
-The default value of 100ms prevents muxer deadlocks with many audio tracks while maintaining
-efficient file structure. If you experience "starting new cluster" spam, you may need to
-reduce this value. See [this link](https://www.reddit.com/r/ffmpeg/comments/efddfs/starting_new_cluster_due_to_timestamp/) for more information.
+Note: The maxInterleaveDelta parameter controls how ffmpeg interleaves audio and video packets. The default value of 0
+disables interleaving delta, which prevents "starting new cluster" spam but may cause muxer deadlocks with many audio
+tracks. If you experience muxer deadlocks (ffmpeg dies without notice and resulting video can't be played), you may need
+to set a positive value or use the twoPassTranscode parameter.
+See [this link](https://www.reddit.com/r/ffmpeg/comments/efddfs/starting_new_cluster_due_to_timestamp/) for more
+information.
+
+Note: The twoPassTranscode parameter generates two commands for processing complex files in two passes. This can help
+avoid muxer issues with files that have many audio tracks or high bitrates. Run the first command to transcode video,
+then run the second command to process audio and merge with the video.
 
 ## Building
 
