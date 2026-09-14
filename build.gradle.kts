@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    testImplementation(sourceSets.main.get().output)
 }
 
 tasks.test {
