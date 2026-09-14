@@ -25,9 +25,6 @@ jobs:
       - name: Build and test
         run: ./gradlew build
 
-      - name: Install GitHub CLI
-        run: sudo apt-get install -y gh
-
       - name: Enable auto-merge
         if: success()
         run: |
@@ -35,7 +32,3 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Debug build failure
-        if: failure()
-        run: echo "Build failed. Check logs above."
