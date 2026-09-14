@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.regex.Pattern
 
 import kotlin.system.exitProcess
@@ -68,6 +69,10 @@ class CommandCreator {
         }
 
         val takeLanguages = languageList(parsedArgs).distinct()
+
+        if (ffmpegWrapper is FfmpegWrapperImpl && !File(args[0]).canRead()) {
+            return "[Error] File ${args[0]} does not exist or can't be accessed."
+        }
 
         val ffmpegResult = ffmpegWrapper.read(args[0])
 
