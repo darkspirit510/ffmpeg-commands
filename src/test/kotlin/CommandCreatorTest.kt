@@ -1,5 +1,6 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
+import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -332,6 +333,69 @@ class CommandCreatorTest {
 
         assertEquals(
             "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]",
+            result
+        )
+    }
+
+    @Test
+    fun `ignores unparsable lines that merely contain the word Stream`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                title           : My Stream Movie
+                Stream groups:
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `shows error message when file has no video stream`() {
+        val result = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mka"))
+
+        assertEquals("[Error] No video stream found in somefile.mka.", result)
+    }
+
+    @Test
+    fun `shows error message when ffmpeg output has no streams at all`() {
+        val result = CommandCreator(
+            FakeWrapper(
+                """
+                somefile.mkv: Invalid data found when processing input
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals("[Error] No video stream found in somefile.mkv.", result)
+    }
+
+    @Test
+    fun `shows error message when ffmpeg cannot be started`() {
+        val wrapper = object : FfmpegWrapper {
+            override fun read(name: String): List<String> =
+                throw IOException("Cannot run program \"ffmpeg\": error=2, No such file or directory")
+        }
+
+        val result = CommandCreator(wrapper).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "[Error] Could not run ffmpeg: Cannot run program \"ffmpeg\": error=2, No such file or directory",
             result
         )
     }

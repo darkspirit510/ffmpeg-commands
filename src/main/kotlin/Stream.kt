@@ -13,36 +13,32 @@ data class Stream(
             .compile("""Stream #0:(?<index>\d+)(\[(.*?)\])?: (?<type>\w+): (?<codec>.*)""")
 
         fun from(raw: String, parsedArgs: Map<String, String>): Stream? {
-            with(
-                patternWithLang
-                    .matcher(raw)
-                    .apply {
-                        if (!matches()) {
-                            with(
-                                patternWithoutLang
-                                    .matcher(raw)
-                                    .apply {
-                                        if (!matches() || !setOf("Video", "Attachment").contains(group("type"))) {
-                                            if (!ignoreMissingLanguage(group("type"), parsedArgs)) {
-                                                return null
-                                            }
-                                        }
-                                    }
-                            ) {
-                                return Stream(
-                                    index = group("index").toInt(),
-                                    lang = "???",
-                                    type = group("type"),
-                                    codec = group("codec")
-                                )
-                            }
-                        }
-                    }
-            ) {
+            with(patternWithLang.matcher(raw)) {
+                if (matches()) {
+                    return Stream(
+                        index = group("index").toInt(),
+                        lang = group("lang"),
+                        type = group("type"),
+                        codec = group("codec")
+                    )
+                }
+            }
+
+            with(patternWithoutLang.matcher(raw)) {
+                if (!matches()) {
+                    return null
+                }
+
+                val type = group("type")
+
+                if (!setOf("Video", "Attachment").contains(type) && !ignoreMissingLanguage(type, parsedArgs)) {
+                    return null
+                }
+
                 return Stream(
                     index = group("index").toInt(),
-                    lang = group("lang"),
-                    type = group("type"),
+                    lang = "???",
+                    type = type,
                     codec = group("codec")
                 )
             }

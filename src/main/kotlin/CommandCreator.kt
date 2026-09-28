@@ -1,3 +1,4 @@
+import java.io.IOException
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
@@ -71,14 +72,21 @@ class CommandCreator {
 
         val takeLanguages = languageList(parsedArgs).distinct()
 
-        val ffmpegResult = ffmpegWrapper.read(args[0])
+        val ffmpegResult = try {
+            ffmpegWrapper.read(args[0])
+        } catch (e: IOException) {
+            return "[Error] Could not run ffmpeg: ${e.message}"
+        }
 
         if (ffmpegResult.any { it.contains(FILE_DOES_NOT_EXIST) }) {
             return "[Error] File ${args[0]} does not exist or can't be accessed."
         }
 
         val missingLanguageError = checkMissingLanguage(ffmpegResult, parsedArgs)
-        if (missingLanguageError != null) return missingLanguageError
+
+        if (missingLanguageError != null) {
+            return missingLanguageError
+        }
 
         val streams = ffmpegResult
             .asSequence()
@@ -89,6 +97,10 @@ class CommandCreator {
             .filterNotNull()
             .groupBy { it.type }
             .filter { knownChannelTypes.contains(it.key) }
+
+        if (streams["Video"].isNullOrEmpty()) {
+            return "[Error] No video stream found in ${args[0]}."
+        }
 
         val filename = escape(args[0])
         val useDocker = parsedArgs.contains(DOCKER)
@@ -223,10 +235,17 @@ class CommandCreator {
 
         for (line in lines) {
             val trimmed = line.trim()
-            if (!trimmed.contains("Stream") || trimmed.startsWith("Guessed")) continue
-            if (Stream.patternWithLang.matcher(trimmed).matches()) continue
+
+            if (!trimmed.contains("Stream") || trimmed.startsWith("Guessed")) {
+                continue
+            }
+
+            if (Stream.patternWithLang.matcher(trimmed).matches()) {
+                continue
+            }
 
             val matcher = Stream.patternWithoutLang.matcher(trimmed)
+
             if (matcher.matches()) {
                 when (matcher.group("type")) {
                     "Audio" -> if (!hasSetAudioLanguages) {
@@ -259,7 +278,8 @@ class CommandCreator {
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
-        parameters[ADDITIONAL_LANGUAGES]?.split(",")
+        parameters[ADDITIONAL_LANGUAGES]
+            ?.split(",")
             ?: emptyList()
     )
 
@@ -338,13 +358,18 @@ class CommandCreator {
         val audioMappings = mutableListOf<Mapping>()
 
         sourceMappings.forEach {
-            audioMappings.add(Mapping(it.first, it.second.codec, "copy"))
+            audioMappings.add(
+                Mapping(
+                    index = it.first,
+                    codec = it.second.codec,
+                    action = "copy"
+                )
+            )
         }
 
         if (audioMappings.any { !it.codec.startsWith("ac3") } && setAudioLangs.isEmpty() && audioMappings.none {
-                it.codec.startsWith(
-                    "ac3"
-                ) && !it.codec.endsWith("stereo, fltp, 192 kb/s")
+                it.codec.startsWith("ac3")
+                    && !it.codec.endsWith("stereo, fltp, 192 kb/s")
             }) {
             val lastNonAC3Index = audioMappings
                 .indexOf(audioMappings.last { !it.codec.startsWith("ac3") })
