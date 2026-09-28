@@ -20,6 +20,10 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+
+    // Some tests run the packaged jar, so build it first and tell the tests where it is.
+    dependsOn(tasks.jar)
+    systemProperty("jar.path", tasks.jar.get().archiveFile.get().asFile.absolutePath)
 }
 
 tasks.withType<KotlinCompile> {

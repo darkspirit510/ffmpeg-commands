@@ -226,7 +226,7 @@ class ParameterTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 copy " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -456,12 +456,82 @@ class ParameterTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:1 -c:a:1 copy " +
+                "-map 0:a:1 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:a:2 -c:a:2 copy " +
                 "-map 0:a:3 -c:a:3 copy " +
-                "-metadata:s:a:1 language=ger " +
+                "-metadata:s:a:0 language=ger " +
                 "-metadata:s:a:3 language=eng " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `orders audio by language after setting missing audio languages`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0: Video: hevc (Main), yuv420p(tv), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, start 0.088000 (default)
+                Stream #0:1: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+                Stream #0:2: Audio: ac3, 48000 Hz, stereo, fltp, 448 kb/s (default)
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-setAudioLanguages=eng,ger"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
+                "-map 0:a:1 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:1 copy " +
+                "-metadata:s:a:0 language=ger " +
+                "-metadata:s:a:1 language=eng " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `transcodes non-ac3 stream instead of probable ac3 commentary`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(eng): Audio: ac3, 48000 Hz, stereo, fltp, 192 kb/s
+                Stream #0:2(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:1 -c:a:1 copy " +
+                "-map 0:a:1 -c:a:2 ac3 " +
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `detects probable ac3 commentary with trailing default flag`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), fltp, 1536 kb/s
+                Stream #0:2(eng): Audio: ac3, 48000 Hz, stereo, fltp, 192 kb/s (default)
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:1 ac3 " +
+                "-map 0:a:1 -c:a:2 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )

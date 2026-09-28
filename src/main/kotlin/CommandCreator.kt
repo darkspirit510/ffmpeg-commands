@@ -28,7 +28,7 @@ class CommandCreator {
 
     private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
-    private val escapeCharacters = listOf(" ", "`", "(", ")", "!", "?")
+    private val unsafeShellCharacters = Regex("""[^\p{L}\p{N}_./,:@%+=-]""")
     private val knownParameters = listOf(
         ALIAS,
         ADDITIONAL_LANGUAGES,
@@ -129,7 +129,11 @@ class CommandCreator {
             ?.times(1000)
             ?: 0L
 
-        val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE)
+        val videoFormat = videoFormat(streams)
+        val copyVideo = videoFormat == "copy"
+
+        // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
+        val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
 
         if (useTwoPass) {
             val videoOutputName = outputName(filename.substringAfterLast("/"))
@@ -137,7 +141,7 @@ class CommandCreator {
             val finalOutputFile = "$outputDir/$videoOutputName"
 
             val videoCommand = (commandPrefix + "-n -i $inputFile " +
-                "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
+                "-map 0:v:0 -c:v:0 $videoFormat " +
                 "-crf 17 -preset 2 -f matroska " +
                 "$videoOutputFile").replace("  ", " ").trim()
 
@@ -149,44 +153,26 @@ class CommandCreator {
                 "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
 
-            val finalVideoCommand = if (useDocker) {
-                val volumePath = "\"\$(pwd)\""
-                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $videoCommand"
-            } else {
-                videoCommand
-            }
-
-            val finalAudioCommand = if (useDocker) {
-                val volumePath = "\"\$(pwd)\""
-                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $audioCommand"
-            } else {
-                audioCommand
-            }
+            val finalVideoCommand = if (useDocker) dockerWrap(videoCommand, useUnstarted) else videoCommand
+            val finalAudioCommand = if (useDocker) dockerWrap(audioCommand, useUnstarted) else audioCommand
 
             return "$finalVideoCommand\n$finalAudioCommand"
         }
 
+        val qualityOptions = if (copyVideo) "" else "-crf 17 -preset 2 "
+
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
-            "-map 0:v:0 -c:v:0 ${videoFormat(streams)} " +
+            "-map 0:v:0 -c:v:0 $videoFormat " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
             attachmentMapping(streams) +
-            "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+            qualityOptions +
+            "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
             "$outputDir/${outputName(filename.substringAfterLast("/"))}")
             .replace("  ", " ")
             .trim()
 
-        return if (useDocker) {
-            val volumePath = "\"\$(pwd)\""
-
-            if (useUnstarted) {
-                "docker create --rm -it -v $volumePath:/config linuxserver/ffmpeg $baseCommand"
-            } else {
-                "docker run --rm -it -v $volumePath:/config linuxserver/ffmpeg $baseCommand"
-            }
-        } else {
-            baseCommand
-        }
+        return if (useDocker) dockerWrap(baseCommand, useUnstarted) else baseCommand
     }
 
     private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"
@@ -267,14 +253,13 @@ class CommandCreator {
         ""
     }
 
-    private fun escape(filename: String): String {
-        var escapedFilename = filename
+    private fun escape(filename: String): String = unsafeShellCharacters.replace(filename) { "\\${it.value}" }
 
-        escapeCharacters.forEach {
-            escapedFilename = escapedFilename.replace(it, "\\$it")
-        }
+    private fun dockerWrap(command: String, unstarted: Boolean): String {
+        val volumePath = "\"\$(pwd)\""
+        val dockerCommand = if (unstarted) "create" else "run"
 
-        return escapedFilename
+        return "docker $dockerCommand --rm -it -v $volumePath:/config linuxserver/ffmpeg $command"
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
@@ -310,7 +295,7 @@ class CommandCreator {
             }
         }
 
-        val baseMappings = takeLanguages
+        val mappings = takeLanguages
             .flatMap { lang ->
                 audioMappingsFor(audioStreams.mapIndexedNotNull { idx, stream ->
                     if (stream.lang == lang ||
@@ -325,28 +310,16 @@ class CommandCreator {
             .distinct()
             .toList()
 
-        val mappings = if (setAudioLangs.isNotEmpty()) {
-            baseMappings.sortedBy { it.index }
-        } else {
-            baseMappings
-        }
-
         val audioPart = mappings
             .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
             .joinToString(" ")
 
         val metadataPart = if (noLangAssignments.isNotEmpty()) {
             noLangAssignments.entries
-                .sortedBy { it.key }
-                .mapNotNull { (streamIdx, lang) ->
-                    val mappingIdx = mappings.indexOfFirst { it.index == streamIdx }
-                    if (mappingIdx >= 0) {
-                        "-metadata:s:a:$mappingIdx language=$lang"
-                    } else {
-                        null
-                    }
-                }
-                .joinToString(" ")
+                .map { (streamIdx, lang) -> mappings.indexOfFirst { it.index == streamIdx } to lang }
+                .filter { (mappingIdx, _) -> mappingIdx >= 0 }
+                .sortedBy { (mappingIdx, _) -> mappingIdx }
+                .joinToString(" ") { (mappingIdx, lang) -> "-metadata:s:a:$mappingIdx language=$lang" }
         } else ""
 
         return listOfNotNull(audioPart, metadataPart)
@@ -369,11 +342,12 @@ class CommandCreator {
 
         if (audioMappings.any { !it.codec.startsWith("ac3") } && setAudioLangs.isEmpty() && audioMappings.none {
                 it.codec.startsWith("ac3")
-                    && !it.codec.endsWith("stereo, fltp, 192 kb/s")
+                    && !it.codec.contains("stereo, fltp, 192 kb/s")
             }) {
             val lastNonAC3Index = audioMappings
                 .indexOf(audioMappings.last { !it.codec.startsWith("ac3") })
-            audioMappings.add(lastNonAC3Index + 1, audioMappings.first().copy(action = "ac3"))
+            val transcodeSource = audioMappings.first { !it.codec.startsWith("ac3") }
+            audioMappings.add(lastNonAC3Index + 1, transcodeSource.copy(action = "ac3"))
         }
 
         return audioMappings

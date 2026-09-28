@@ -1,3 +1,4 @@
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.IOException
@@ -262,13 +263,131 @@ class CommandCreatorTest {
                 Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
             """
             )
-        ).doAction(arrayOf("testfile.mkv", "-docker", "-unstarted"))
+        ).doAction(arrayOf("Test File (1).mkv", "-docker", "-unstarted"))
 
         assertEquals(
-            "docker create --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/testfile.mkv " +
+            """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/Test\ File\ \(1\).mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 """ +
+                """-map 0:a:0 -c:a:0 copy """ +
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/Test\ File\ \(1\).mkv""",
+            command
+        )
+    }
+
+    @Test
+    fun `escapes shell metacharacters in filename`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("""Tom & Jerry; it's a|b<c>d*e[f]{g}#h~i\j"k.mkv"""))
+
+        assertEquals(
+            """ffmpeg -n -i Tom\ \&\ Jerry\;\ it\'s\ a\|b\<c\>d\*e\[f\]\{g\}\#h\~i\\j\"k.mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 """ +
+                """-map 0:a:0 -c:a:0 copy """ +
+                """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 """ +
+                """Output/Tom\ \&\ Jerry\;\ it\'s\ a\|b\<c\>d\*e\[f\]\{g\}\#h\~i\\j\"k.mkv""",
+            command
+        )
+    }
+
+    @Test
+    fun `does not escape unicode letters in filename`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("Amélie.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i Amélie.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/testfile.mkv",
+                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/Amélie.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `creates unstarted containers for both commands in two pass mode`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-docker", "-unstarted", "-twoPassTranscode"))
+
+        assertEquals(
+            """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv""" +
+                "\n" +
+                """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv """ +
+                """-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy """ +
+                """-max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv""",
+            command
+        )
+    }
+
+    @Test
+    fun `runs both commands in two pass docker mode by default`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-docker", "-twoPassTranscode"))
+
+        assertTrue(command.lines().all { it.startsWith("docker run --rm -it ") })
+        assertEquals(2, command.lines().size)
+    }
+
+    @Test
+    fun `omits encoder quality options when video is copied`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: av1 (Main), yuv420p10le(tv, bt709), 1920x1080, 23.98 fps, 23.98 tbr, 1k tbn
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 copy " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `creates single command in two pass mode when video is copied`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                Stream #0:0(eng): Video: av1 (Main), yuv420p10le(tv, bt709), 1920x1080, 23.98 fps, 23.98 tbr, 1k tbn
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
+            """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 copy " +
+                "-map 0:a:0 -c:a:0 copy " +
+                "-max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -400,9 +519,18 @@ class CommandCreatorTest {
         )
     }
 
+    private val jarPath = System.getProperty("jar.path")
+
+    private fun ffmpegIsInstalled() = try {
+        ProcessBuilder("ffmpeg", "-version").redirectErrorStream(true).start().also { it.inputStream.readBytes() }.waitFor()
+        true
+    } catch (e: IOException) {
+        false
+    }
+
     @Test
     fun `main function exits with code 1 when parameter is missing`() {
-        val process = ProcessBuilder("java", "-jar", "build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar")
+        val process = ProcessBuilder("java", "-jar", jarPath)
             .redirectErrorStream(true)
             .start()
 
@@ -415,7 +543,9 @@ class CommandCreatorTest {
 
     @Test
     fun `main function exits with code 1 when file does not exist`() {
-        val process = ProcessBuilder("java", "-jar", "build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar", "nonexistent.mkv")
+        assumeTrue(ffmpegIsInstalled(), "ffmpeg is not installed")
+
+        val process = ProcessBuilder("java", "-jar", jarPath, "nonexistent.mkv")
             .redirectErrorStream(true)
             .start()
 
