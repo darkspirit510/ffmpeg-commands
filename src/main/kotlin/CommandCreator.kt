@@ -21,6 +21,7 @@ const val DOCKER = "docker"
 const val UNSTARTED = "unstarted"
 const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
 const val TWO_PASS_TRANSCODE = "twoPassTranscode"
+const val DEINTERLACE = "deinterlace"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 
@@ -38,17 +39,23 @@ class CommandCreator {
         SET_AUDIO_LANGUAGES,
         UNSTARTED,
         MAX_INTERLEAVE_DELTA,
-        TWO_PASS_TRANSCODE
+        TWO_PASS_TRANSCODE,
+        DEINTERLACE
     )
 
     private val ffmpegWrapper: FfmpegWrapper
+    private val weightsInstaller: WeightsInstaller
 
-    constructor() {
-        this.ffmpegWrapper = FfmpegWrapperImpl()
-    }
+    constructor() : this(FfmpegWrapperImpl())
 
-    constructor(wrapper: FfmpegWrapper) {
+    constructor(wrapper: FfmpegWrapper) : this(wrapper, WeightsInstallerImpl())
+
+    constructor(
+        wrapper: FfmpegWrapper,
+        installer: WeightsInstaller
+    ) {
         this.ffmpegWrapper = wrapper
+        this.weightsInstaller = installer
     }
 
     fun doAction(args: Array<String>): String {
@@ -71,6 +78,7 @@ class CommandCreator {
         }
 
         val takeLanguages = languageList(parsedArgs).distinct()
+        val deinterlace = parsedArgs.contains(DEINTERLACE)
 
         val ffmpegResult = try {
             ffmpegWrapper.read(args[0])
@@ -102,6 +110,14 @@ class CommandCreator {
             return "[Error] No video stream found in ${args[0]}."
         }
 
+        if (deinterlace) {
+            try {
+                weightsInstaller.install()
+            } catch (e: IOException) {
+                return "[Error] Could not install nnedi weights: ${e.message}"
+            }
+        }
+
         val filename = escape(args[0])
         val useDocker = parsedArgs.contains(DOCKER)
         val useUnstarted = parsedArgs.contains(UNSTARTED)
@@ -129,7 +145,13 @@ class CommandCreator {
             ?.times(1000)
             ?: 0L
 
-        val videoFormat = videoFormat(streams)
+        val weightsDir = if (useDocker) {
+            "/weights"
+        } else {
+            "\$HOME/.cache/ffmpeg-commands"
+        }
+
+        val videoFormat = videoFormat(streams, deinterlace, weightsDir)
         val copyVideo = videoFormat == "copy"
 
         // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
@@ -153,8 +175,17 @@ class CommandCreator {
                 "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
 
-            val finalVideoCommand = if (useDocker) dockerWrap(videoCommand, useUnstarted) else videoCommand
-            val finalAudioCommand = if (useDocker) dockerWrap(audioCommand, useUnstarted) else audioCommand
+            val finalVideoCommand = if (useDocker) {
+                dockerWrap(videoCommand, useUnstarted, deinterlace)
+            } else {
+                videoCommand
+            }
+
+            val finalAudioCommand = if (useDocker) {
+                dockerWrap(audioCommand, useUnstarted, false)
+            } else {
+                audioCommand
+            }
 
             return "$finalVideoCommand\n$finalAudioCommand"
         }
@@ -172,7 +203,11 @@ class CommandCreator {
             .replace("  ", " ")
             .trim()
 
-        return if (useDocker) dockerWrap(baseCommand, useUnstarted) else baseCommand
+        return if (useDocker) {
+            dockerWrap(baseCommand, useUnstarted, deinterlace)
+        } else {
+            baseCommand
+        }
     }
 
     private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"
@@ -255,11 +290,16 @@ class CommandCreator {
 
     private fun escape(filename: String): String = unsafeShellCharacters.replace(filename) { "\\${it.value}" }
 
-    private fun dockerWrap(command: String, unstarted: Boolean): String {
+    private fun dockerWrap(command: String, unstarted: Boolean, deinterlace: Boolean): String {
         val volumePath = "\"\$(pwd)\""
         val dockerCommand = if (unstarted) "create" else "run"
+        val weightsVolume = if (deinterlace) {
+            "-v \"\$HOME/.cache/ffmpeg-commands\":/weights "
+        } else {
+            ""
+        }
 
-        return "docker $dockerCommand --rm -it -v $volumePath:/config linuxserver/ffmpeg $command"
+        return "docker $dockerCommand --rm -it -v $volumePath:/config ${weightsVolume}linuxserver/ffmpeg $command"
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
@@ -268,8 +308,11 @@ class CommandCreator {
             ?: emptyList()
     )
 
-    private fun videoFormat(streams: Map<String, List<Stream>>): String =
-        if (streams["Video"]!!.first().codec.startsWith("av1")) {
+    private fun videoFormat(streams: Map<String, List<Stream>>, deinterlace: Boolean, weightsDir: String): String =
+        if (deinterlace) {
+            "libsvtav1 -g 480 -keyint_min 480 " +
+                "-vf \"nnedi=weights=$weightsDir/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\""
+        } else if (streams["Video"]!!.first().codec.startsWith("av1")) {
             "copy"
         } else {
             "libsvtav1 -g 240 -keyint_min 240"

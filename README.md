@@ -28,6 +28,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
 | `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 0)                              |
 | `twoPassTranscode`              | Generate two separate commands for two-pass transcoding (video first, then audio+merge)   |
+| `deinterlace`                   | Deinterlace with ffmpeg's `nnedi` filter at double frame rate (e.g. 25i → 50p)            |
 
 ## Behavior
 
@@ -46,6 +47,13 @@ information.
 Note: The twoPassTranscode parameter generates two commands for processing complex files in two passes. This can help
 avoid muxer issues with files that have many audio tracks or high bitrates. Run the first command to transcode video,
 then run the second command to process audio and merge with the video.
+
+Note: The deinterlace parameter adds `-vf nnedi=...:field=af:deint=interlaced:nns=n128:qual=slow`, doubles the keyframe
+interval to 480 and re-encodes AV1 sources instead of copying them. With `-twoPassTranscode` the filter is applied in
+the video pass only. The `nnedi` filter needs a weights file: the tool extracts it to `~/.cache/ffmpeg-commands/` on
+first use (and replaces a copy with the wrong size). In docker mode, that directory is mounted into the container as `/weights`.
+The bundled `nnedi3_weights.bin` comes from [vapoursynth-nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) and
+is licensed under the GPLv2, see `src/main/resources/NNEDI3_WEIGHTS_LICENSE.txt`.
 
 ## Building
 
