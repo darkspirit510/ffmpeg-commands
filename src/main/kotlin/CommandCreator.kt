@@ -27,6 +27,8 @@ private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file
 private const val VIDEO_ENCODER = "libsvtav1"
 private const val GOP_PROGRESSIVE = "-g 240 -keyint_min 240"
 private const val GOP_DEINTERLACED = "-g 480 -keyint_min 480"
+// 10-bit output keeps near-black gradients intact even for 8-bit sources; tune=0 favours visual quality over PSNR.
+private const val ENCODER_OPTIONS = "-pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1"
 private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
 
 class CommandCreator {
@@ -318,12 +320,12 @@ class CommandCreator {
 
     private fun videoFormat(streams: Map<String, List<Stream>>, deinterlace: Boolean, weightsDir: String): String =
         if (deinterlace) {
-            "$VIDEO_ENCODER $GOP_DEINTERLACED " +
+            "$VIDEO_ENCODER $GOP_DEINTERLACED $ENCODER_OPTIONS " +
                 "-vf \"nnedi=weights=$weightsDir/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\""
         } else if (streams["Video"]!!.first().codec.startsWith("av1")) {
             "copy"
         } else {
-            "$VIDEO_ENCODER $GOP_PROGRESSIVE"
+            "$VIDEO_ENCODER $GOP_PROGRESSIVE $ENCODER_OPTIONS"
         }
 
     private fun audioMappings(
