@@ -1,0 +1,6 @@
+nnedi3_weights.bin is taken unmodified from vapoursynth-nnedi3:
+https://github.com/dubhater/vapoursynth-nnedi3/raw/master/src/nnedi3_weights.bin
+
+It is licensed under the GNU General Public License, version 2 (see NNEDI3_WEIGHTS_LICENSE.txt).
+It is bundled so that ffmpeg's nnedi filter can be used without a separate download; the rest of this
+project is licensed under the MIT License.
