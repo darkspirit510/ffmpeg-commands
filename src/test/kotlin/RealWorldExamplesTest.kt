@@ -56,7 +56,7 @@ class RealWorldExamplesTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:9 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:a:1 -c:a:2 copy " +
@@ -98,7 +98,7 @@ class RealWorldExamplesTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:a:1 -c:a:1 copy " +
                 "-map 0:a:4 -c:a:2 copy " +
@@ -129,7 +129,7 @@ class RealWorldExamplesTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:1 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
@@ -159,7 +159,7 @@ class RealWorldExamplesTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy " +
                 "-map 0:a:2 -c:a:1 ac3 " +
                 "-map 0:a:0 -c:a:2 copy " +
@@ -191,7 +191,7 @@ class RealWorldExamplesTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 ac3 " +
                 "-map 0:a:1 -c:a:2 copy " +

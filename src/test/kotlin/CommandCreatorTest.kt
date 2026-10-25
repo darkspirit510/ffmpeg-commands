@@ -24,7 +24,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy " +
                 "-map 0:a:1 -c:a:1 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -45,7 +45,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mp4 " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -110,7 +110,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "somealias -n -i somefile.mp4 " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -130,7 +130,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
@@ -150,7 +150,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/Some\ File\`s\ \(2024\).mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
                 """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/Some\ File\`s\ \(2024\).mkv""",
             command
@@ -170,7 +170,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/file.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file.mkv",
             command
@@ -190,7 +190,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """docker run --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file\`s.mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
                 """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file\`s.mkv""",
             command
@@ -210,7 +210,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/file.mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
                 """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/file.mkv""",
             command
@@ -248,7 +248,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "docker create --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
@@ -268,7 +268,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/Test\ File\ \(1\).mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
                 """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/Test\ File\ \(1\).mkv""",
             command
@@ -288,7 +288,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """ffmpeg -n -i Tom\ \&\ Jerry\;\ it\'s\ a\|b\<c\>d\*e\[f\]\{g\}\#h\~i\\j\"k.mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 """ +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 """ +
                 """-map 0:a:0 -c:a:0 copy """ +
                 """-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 """ +
                 """Output/Tom\ \&\ Jerry\;\ it\'s\ a\|b\<c\>d\*e\[f\]\{g\}\#h\~i\\j\"k.mkv""",
@@ -309,7 +309,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i Amélie.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/Amélie.mkv",
             command
@@ -329,7 +329,7 @@ class CommandCreatorTest {
 
         assertEquals(
             """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 -crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv""" +
+                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv""" +
                 "\n" +
                 """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv """ +
                 """-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy """ +
@@ -355,7 +355,7 @@ class CommandCreatorTest {
 
     @Test
     fun `encodes in 10 bit with visual quality tuning unless video is copied`() {
-        val tenBitOptions = "-pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1"
+        val tenBitOptions = "-pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1"
         val progressiveSource = """
                 Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080, 23.98 fps, 23.98 tbr, 1k tbn
                 Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
@@ -448,7 +448,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -497,7 +497,7 @@ class CommandCreatorTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command

@@ -17,7 +17,7 @@ class DeinterlaceTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -34,7 +34,7 @@ class DeinterlaceTest {
         assertEquals(
             "docker run --rm -it -v \"\$(pwd)\":/config -v \"\$HOME/.cache/ffmpeg-commands\":/weights linuxserver/ffmpeg " +
                 "-n -i /config/somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=/weights/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
@@ -50,7 +50,7 @@ class DeinterlaceTest {
         assertEquals(
             "docker run --rm -it -v \"\$(pwd)\":/config -v \"\$HOME/.cache/ffmpeg-commands\":/weights linuxserver/ffmpeg " +
                 "-n -i /config/somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=/weights/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv" +
                 "\n" +
@@ -76,7 +76,7 @@ class DeinterlaceTest {
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
-                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1 " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
                 "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
