@@ -17,7 +17,7 @@ class TwoPassTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
             "\n" +
-            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -37,7 +37,7 @@ class TwoPassTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
             "\n" +
-            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:1 -c:a:0 copy -map 0:a:0 -c:a:1 copy -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:1 -c:a:0 copy -map 0:a:0 -c:a:1 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -57,7 +57,7 @@ class TwoPassTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv -map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
             "\n" +
-            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -map 0:s:0 -c:s:0 copy -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            "ffmpeg -n -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -map 0:s:0 -c:s:0 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -76,7 +76,7 @@ class TwoPassTest {
         assertEquals(
             "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv" +
             "\n" +
-            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
+            "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
     }

@@ -20,7 +20,7 @@ class DeinterlaceTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
         assertEquals(1, installer.calls)
@@ -37,7 +37,7 @@ class DeinterlaceTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=/weights/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
     }
@@ -57,7 +57,7 @@ class DeinterlaceTest {
                 "docker run --rm -it -v \"\$(pwd)\":/config linuxserver/ffmpeg " +
                 "-n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
+                "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
     }
@@ -79,7 +79,7 @@ class DeinterlaceTest {
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
                 "-map 0:a:0 -c:a:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }

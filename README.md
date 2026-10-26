@@ -55,6 +55,36 @@ first use (and replaces a copy with the wrong size). In docker mode, that direct
 The bundled `nnedi3_weights.bin` comes from [vapoursynth-nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) and
 is licensed under the GPLv2, see `src/main/resources/NNEDI3_WEIGHTS_LICENSE.txt`.
 
+## Version tag
+
+The encoder settings leave no trace in the output file, so every command that encodes video writes the tool version
+into the video stream of the final file:
+
+```
+-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=1.0
+```
+
+With `-twoPassTranscode` the tag is set in the second (mux) command; the intermediate `_video.mkv` has none. When the
+video is copied (AV1 source), the tool adds no tag, since nothing was encoded. ffmpeg still copies an existing tag from
+the source, so a re-muxed file keeps the version it was encoded with.
+
+`mediainfo --Output=JSON` shows the tag in the video track's `extra` object:
+
+```json
+{ "@type": "Video", "extra": { "FFMPEG_COMMANDS_VERSION": "1.0" } }
+```
+
+The version (`MAJOR.MINOR`) describes the output files:
+
+| Change | Meaning for encoded files                                                                          |
+|--------|----------------------------------------------------------------------------------------------------|
+| Major  | The video encoding settings changed. Files with an older major version are worth re-encoding.     |
+| Minor  | Something else in the output changed (audio, subtitles, metadata, ...). No re-encode needed.       |
+
+Changes that leave the output file unchanged keep the version. Files without the tag were encoded before versioning
+was introduced, with unknown settings; `1.0` stands for 10-bit SVT-AV1 with `tune=0`, `enable-qm=1` and
+`enable-variance-boost=1`.
+
 ## Building
 
 To build this project from source, you'll need Gradle installed. Clone the repository and run:
@@ -70,11 +100,11 @@ This will create a jar file in the `build/libs` directory.
 After building, you can run the tool with:
 
 ```bash
-java -jar build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar inputfile.mkv [options]
+java -jar build/libs/ffmpeg-commands-1.0.jar inputfile.mkv [options]
 ```
 
 Or if you're using Docker mode:
 
 ```bash
-java -jar build/libs/ffmpeg-commands-1.0-SNAPSHOT.jar inputfile.mkv -docker
+java -jar build/libs/ffmpeg-commands-1.0.jar inputfile.mkv -docker
 ```

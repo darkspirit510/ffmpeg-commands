@@ -7,10 +7,32 @@ plugins {
 }
 
 group = "de.darkspirit510"
-version = "1.0-SNAPSHOT"
+// The single source of the tool version. The video stream of every encode is tagged with it, see AGENTS.md.
+version = "1.0"
 
 repositories {
     mavenCentral()
+}
+
+val generateToolVersion by tasks.registering {
+    val toolVersion = project.version.toString()
+    val outputDir = layout.buildDirectory.dir("generated/sources/toolVersion/kotlin")
+
+    inputs.property("toolVersion", toolVersion)
+    outputs.dir(outputDir)
+
+    doLast {
+        outputDir.get().file("ToolVersion.kt").asFile.writeText(
+            "// Generated from the version in build.gradle.kts, do not edit.\n" +
+                "const val TOOL_VERSION = \"$toolVersion\"\n"
+        )
+    }
+}
+
+kotlin {
+    sourceSets.main {
+        kotlin.srcDir(generateToolVersion)
+    }
 }
 
 dependencies {

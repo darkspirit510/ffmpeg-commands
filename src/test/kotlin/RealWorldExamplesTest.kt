@@ -71,7 +71,7 @@ class RealWorldExamplesTest {
                 "-map 0:s:15 -c:s:6 copy " +
                 "-map 0:s:16 -c:s:7 copy " +
                 "-map 0:s:27 -c:s:8 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -109,7 +109,7 @@ class RealWorldExamplesTest {
                 "-map 0:a:2 -c:a:7 ac3 " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -133,7 +133,7 @@ class RealWorldExamplesTest {
                 "-map 0:a:1 -c:a:0 copy " +
                 "-map 0:a:0 -c:a:1 copy " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -169,7 +169,7 @@ class RealWorldExamplesTest {
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-map 0:t -c:t copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }
@@ -197,7 +197,7 @@ class RealWorldExamplesTest {
                 "-map 0:a:1 -c:a:2 copy " +
                 "-map 0:a:1 -c:a:3 ac3 " +
                 "-map 0:s:0 -c:s:0 copy " +
-                "-crf 17 -preset 2 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
     }

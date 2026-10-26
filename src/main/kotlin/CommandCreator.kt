@@ -31,6 +31,8 @@ private const val GOP_DEINTERLACED = "-g 480 -keyint_min 480"
 // variance boost spends extra bits on flat, low-contrast areas.
 private const val ENCODER_OPTIONS = "-pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1"
 private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
+// Marks which settings encoded the video stream; TOOL_VERSION is generated from the version in build.gradle.kts.
+private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION"
 
 class CommandCreator {
 
@@ -179,7 +181,7 @@ class CommandCreator {
                 "${audioMappings(streams, takeLanguages, parsedArgs)} " +
                 "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
                 attachmentMapping(streams) +
-                "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+                "$VERSION_TAG -max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
 
             val finalVideoCommand = if (useDocker) {
@@ -200,7 +202,7 @@ class CommandCreator {
         val qualityOptions = if (copyVideo) {
             ""
         } else {
-            "$QUALITY_OPTIONS "
+            "$QUALITY_OPTIONS $VERSION_TAG "
         }
 
         val baseCommand = (commandPrefix + "-n -i $inputFile " +
