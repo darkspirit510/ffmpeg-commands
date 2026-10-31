@@ -22,6 +22,7 @@ const val UNSTARTED = "unstarted"
 const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
 const val TWO_PASS_TRANSCODE = "twoPassTranscode"
 const val DEINTERLACE = "deinterlace"
+const val TRIM_START = "trimStart"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 private const val VIDEO_ENCODER = "libsvtav1"
@@ -39,6 +40,7 @@ class CommandCreator {
     private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
     private val unsafeShellCharacters = Regex("""[^\p{L}\p{N}_./,:@%+=-]""")
+    private val positiveSeconds = Regex("""\d+(\.\d+)?""")
     private val knownParameters = listOf(
         ALIAS,
         ADDITIONAL_LANGUAGES,
@@ -49,7 +51,8 @@ class CommandCreator {
         UNSTARTED,
         MAX_INTERLEAVE_DELTA,
         TWO_PASS_TRANSCODE,
-        DEINTERLACE
+        DEINTERLACE,
+        TRIM_START
     )
 
     private val ffmpegWrapper: FfmpegWrapper
@@ -162,6 +165,23 @@ class CommandCreator {
 
         val videoFormat = videoFormat(streams, deinterlace, weightsDir)
         val copyVideo = videoFormat == "copy"
+        val trimStart = parsedArgs[TRIM_START]
+
+        if (trimStart != null && copyVideo) {
+            return "[Error] -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
+        }
+
+        // The seek lands on the keyframe before the cut, so copied streams need their earlier packets discarded.
+        val seek = trimStart?.let { "-ss $it " } ?: ""
+        val discardBeforeCut = trimStart?.let { "-copypriorss 0 " } ?: ""
+
+        // After a seek, subtitles sharing an input with audio ended audio encodes right after the cut on real files.
+        val separateSubtitles = trimStart != null && subtitleMappings(streams, takeLanguages, parsedArgs, 0).isNotEmpty()
+        val subtitleInput = if (separateSubtitles) {
+            "$seek-i $inputFile "
+        } else {
+            ""
+        }
 
         // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
         val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
@@ -171,17 +191,23 @@ class CommandCreator {
             val videoOutputFile = "$outputDir/${videoOutputName.substringBeforeLast(".")}_video.mkv"
             val finalOutputFile = "$outputDir/$videoOutputName"
 
-            val videoCommand = (commandPrefix + "-n -i $inputFile " +
+            val videoCommand = (commandPrefix + "-n $seek-i $inputFile " +
                 "-map 0:v:0 -c:v:0 $videoFormat " +
                 "$QUALITY_OPTIONS -f matroska " +
                 "$videoOutputFile").replace("  ", " ").trim()
 
-            val audioCommand = (commandPrefix + "-n -i $inputFile -i $videoOutputFile " +
+            val subtitleInputIndex = if (separateSubtitles) {
+                2
+            } else {
+                0
+            }
+
+            val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
                 "-map 1:v:0 -c:v:0 copy " +
                 "${audioMappings(streams, takeLanguages, parsedArgs)} " +
-                "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
+                "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
                 attachmentMapping(streams) +
-                "$VERSION_TAG -max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+                "$VERSION_TAG $discardBeforeCut-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
 
             val finalVideoCommand = if (useDocker) {
@@ -205,12 +231,19 @@ class CommandCreator {
             "$QUALITY_OPTIONS $VERSION_TAG "
         }
 
-        val baseCommand = (commandPrefix + "-n -i $inputFile " +
+        val subtitleInputIndex = if (separateSubtitles) {
+            1
+        } else {
+            0
+        }
+
+        val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
             "-map 0:v:0 -c:v:0 $videoFormat " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
-            "${subtitleMappings(streams, takeLanguages, parsedArgs)} " +
+            "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
             attachmentMapping(streams) +
             qualityOptions +
+            discardBeforeCut +
             "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
             "$outputDir/${outputName(filename.substringAfterLast("/"))}")
             .replace("  ", " ")
@@ -239,6 +272,7 @@ class CommandCreator {
             .filter { it.value != null } as Map<String, String>
 
         validateMaxInterleaveDelta(parsed)
+        validateTrimStart(parsed)
 
         return parsed
     }
@@ -260,6 +294,14 @@ class CommandCreator {
             } catch (e: NumberFormatException) {
                 throw IllegalArgumentException("maxInterleaveDelta must be an integer")
             }
+        }
+    }
+
+    private fun validateTrimStart(parsedArgs: Map<String, String>) {
+        val value = parsedArgs[TRIM_START]
+
+        if (value != null && (!positiveSeconds.matches(value) || value.toDouble() <= 0)) {
+            throw IllegalArgumentException("trimStart must be a positive number of seconds")
         }
     }
 
@@ -412,7 +454,8 @@ class CommandCreator {
     private fun subtitleMappings(
         streams: Map<String, List<Stream>>,
         takeLanguages: List<String>,
-        parsedArgs: Map<String, String>
+        parsedArgs: Map<String, String>,
+        inputIndex: Int
     ): String {
         if (parsedArgs.contains(DROP_SUBTITLES)) {
             return ""
@@ -423,7 +466,7 @@ class CommandCreator {
         takeLanguages.forEach { lang ->
             streams["Subtitle"]?.forEachIndexed { idx, it ->
                 if (it.lang == lang) {
-                    subtitleCommands.add("-map 0:s:$idx -c:s:${subtitleCommands.size} copy ")
+                    subtitleCommands.add("-map $inputIndex:s:$idx -c:s:${subtitleCommands.size} copy ")
                 }
             }
         }
