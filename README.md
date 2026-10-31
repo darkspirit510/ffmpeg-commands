@@ -29,6 +29,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 0)                              |
 | `twoPassTranscode`              | Generate two separate commands for two-pass transcoding (video first, then audio+merge)   |
 | `deinterlace`                   | Deinterlace with ffmpeg's `nnedi` filter at double frame rate (e.g. 25i → 50p)            |
+| `trimStart`                     | Cut the given number of seconds from the start of all streams (e.g. `-trimStart=28.5`)    |
 
 ## Behavior
 
@@ -54,6 +55,13 @@ the video pass only. The `nnedi` filter needs a weights file: the tool extracts 
 first use (and replaces a copy with the wrong size). In docker mode, that directory is mounted into the container as `/weights`.
 The bundled `nnedi3_weights.bin` comes from [vapoursynth-nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) and
 is licensed under the GPLv2, see `src/main/resources/NNEDI3_WEIGHTS_LICENSE.txt`.
+
+Note: The trimStart parameter adds `-ss` to the source input and `-copypriorss 0` to the output, which keeps copied
+audio and subtitles from starting at the keyframe before the cut. With `-twoPassTranscode` both commands seek the
+source, and the second command leaves the already trimmed `_video.mkv` untouched. AV1 sources are rejected, because a
+copied video stream can only be cut at a keyframe; with `-deinterlace` they are re-encoded and can be trimmed. A subtitle
+still on screen at the cut is dropped; chapters are shifted to the new start. Subtitles are read through a second `-ss`
+input of the same file: on a real file, subtitles sharing an input with audio made the AC3 encodes end right after the cut.
 
 ## Version tag
 
