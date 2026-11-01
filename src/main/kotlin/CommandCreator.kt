@@ -25,6 +25,8 @@ const val DEINTERLACE = "deinterlace"
 const val TRIM_START = "trimStart"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
+// ffmpeg stops probing once all streams are resolved and buffers what it read until the packets are processed.
+private const val EXTENDED_PROBE = "-analyzeduration 600M -probesize 5G "
 private const val VIDEO_ENCODER = "libsvtav1"
 private const val GOP_PROGRESSIVE = "-g 240 -keyint_min 240"
 private const val GOP_DEINTERLACED = "-g 480 -keyint_min 480"
@@ -41,6 +43,7 @@ class CommandCreator {
     private val defaultLanguages = listOf("deu", "ger", "eng")
     private val unsafeShellCharacters = Regex("""[^\p{L}\p{N}_./,:@%+=-]""")
     private val positiveSeconds = Regex("""\d+(\.\d+)?""")
+    private val unprobedSubtitle = Regex("""Could not find codec parameters for stream \d+ \(Subtitle:""")
     private val knownParameters = listOf(
         ALIAS,
         ADDITIONAL_LANGUAGES,
@@ -171,6 +174,12 @@ class CommandCreator {
             return "[Error] -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
         }
 
+        val probe = if (ffmpegResult.any { unprobedSubtitle.containsMatchIn(it) }) {
+            EXTENDED_PROBE
+        } else {
+            ""
+        }
+
         // The seek lands on the keyframe before the cut, so copied streams need their earlier packets discarded.
         val seek = trimStart?.let { "-ss $it " } ?: ""
         val discardBeforeCut = trimStart?.let { "-copypriorss 0 " } ?: ""
@@ -178,7 +187,7 @@ class CommandCreator {
         // After a seek, subtitles sharing an input with audio ended audio encodes right after the cut on real files.
         val separateSubtitles = trimStart != null && subtitleMappings(streams, takeLanguages, parsedArgs, 0).isNotEmpty()
         val subtitleInput = if (separateSubtitles) {
-            "$seek-i $inputFile "
+            "$probe$seek-i $inputFile "
         } else {
             ""
         }
@@ -191,7 +200,7 @@ class CommandCreator {
             val videoOutputFile = "$outputDir/${videoOutputName.substringBeforeLast(".")}_video.mkv"
             val finalOutputFile = "$outputDir/$videoOutputName"
 
-            val videoCommand = (commandPrefix + "-n $seek-i $inputFile " +
+            val videoCommand = (commandPrefix + "-n $probe$seek-i $inputFile " +
                 "-map 0:v:0 -c:v:0 $videoFormat " +
                 "$QUALITY_OPTIONS -f matroska " +
                 "$videoOutputFile").replace("  ", " ").trim()
@@ -202,7 +211,7 @@ class CommandCreator {
                 0
             }
 
-            val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
+            val audioCommand = (commandPrefix + "-n $probe$seek-i $inputFile -i $videoOutputFile $subtitleInput" +
                 "-map 1:v:0 -c:v:0 copy " +
                 "${audioMappings(streams, takeLanguages, parsedArgs)} " +
                 "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
@@ -237,7 +246,7 @@ class CommandCreator {
             0
         }
 
-        val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
+        val baseCommand = (commandPrefix + "-n $probe$seek-i $inputFile $subtitleInput" +
             "-map 0:v:0 -c:v:0 $videoFormat " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +

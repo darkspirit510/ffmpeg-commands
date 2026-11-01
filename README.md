@@ -63,6 +63,12 @@ copied video stream can only be cut at a keyframe; with `-deinterlace` they are 
 still on screen at the cut is dropped; chapters are shifted to the new start. Subtitles are read through a second `-ss`
 input of the same file: on a real file, subtitles sharing an input with audio made the AC3 encodes end right after the cut.
 
+Note: A PGS subtitle track whose first subtitle starts late makes ffmpeg warn `Could not find codec parameters ...
+unspecified size`. The warning is harmless, as copied subtitles stay intact. When it shows up while the file is read,
+the commands add `-analyzeduration 600M -probesize 5G` to every source input, which silences it for a first subtitle
+within 10 minutes and 5 GB. ffmpeg stops probing once all streams are resolved and keeps what it read in RAM until those
+packets are processed, so memory use peaks at the start of a run, by up to 5 GB per source input.
+
 ## Version tag
 
 The encoder settings leave no trace in the output file, so every command that encodes video writes the tool version
