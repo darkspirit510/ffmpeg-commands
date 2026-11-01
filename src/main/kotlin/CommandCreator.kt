@@ -4,7 +4,7 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     val result = CommandCreator().doAction(args)
 
-    if (result.startsWith("[Error]")) {
+    if (result.startsWith(ERROR_PREFIX)) {
         println(result)
         exitProcess(1)
     }
@@ -34,6 +34,39 @@ private const val ENCODER_OPTIONS = "-pix_fmt yuv420p10le -svtav1-params tune=0:
 private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
 // Marks which settings encoded the video stream; TOOL_VERSION is generated from the version in build.gradle.kts.
 private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION"
+private const val COPY = "copy"
+private const val SOURCE_VIDEO_MAPPING = "-map 0:v:0 -c:v:0"
+private const val ENCODED_VIDEO_MAPPING = "-map 1:v:0 -c:v:0 $COPY"
+private const val ATTACHMENT_MAPPING = "-map 0:t -c:t $COPY"
+private const val MUXING_QUEUE_OPTION = "-max_muxing_queue_size 9999"
+private const val NNEDI_OPTIONS = "field=af:deint=interlaced:nns=n128:qual=slow"
+
+private const val LOCAL_OUTPUT_DIR = "Output"
+private const val LOCAL_WEIGHTS_DIR = "\$HOME/.cache/ffmpeg-commands"
+private const val DOCKER_IMAGE = "linuxserver/ffmpeg"
+private const val DOCKER_CONFIG_DIR = "/config"
+private const val DOCKER_OUTPUT_DIR = "$DOCKER_CONFIG_DIR/$LOCAL_OUTPUT_DIR"
+private const val DOCKER_WEIGHTS_DIR = "/weights"
+private const val DOCKER_CONFIG_VOLUME = "\"\$(pwd)\":$DOCKER_CONFIG_DIR"
+private const val DOCKER_WEIGHTS_VOLUME = "\"$LOCAL_WEIGHTS_DIR\":$DOCKER_WEIGHTS_DIR"
+
+private const val ERROR_PREFIX = "[Error]"
+private const val MISSING_FILENAME =
+    "$ERROR_PREFIX Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]"
+private const val ALIAS_WITH_DOCKER = "$ERROR_PREFIX Cannot use alias and docker options together"
+private const val UNSTARTED_WITHOUT_DOCKER = "$ERROR_PREFIX -unstarted parameter can only be used with -docker"
+private const val COULD_NOT_RUN_FFMPEG = "$ERROR_PREFIX Could not run ffmpeg:"
+private const val COULD_NOT_INSTALL_WEIGHTS = "$ERROR_PREFIX Could not install nnedi weights:"
+private const val TRIM_START_ON_COPIED_VIDEO =
+    "$ERROR_PREFIX -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
+private const val MISSING_AUDIO_LANGUAGE =
+    "$ERROR_PREFIX Missing language for audio stream. Use -setAudioLanguages parameter to specify languages for audio streams without language tags."
+private const val MISSING_SUBTITLE_LANGUAGE = "$ERROR_PREFIX Missing language for subtitle stream"
+private const val UNKNOWN_OPTION = "Unknown option"
+private const val INTERLEAVE_DELTA_EMPTY = "maxInterleaveDelta cannot be empty"
+private const val INTERLEAVE_DELTA_NEGATIVE = "maxInterleaveDelta must be non-negative"
+private const val INTERLEAVE_DELTA_NOT_INTEGER = "maxInterleaveDelta must be an integer"
+private const val TRIM_START_NOT_POSITIVE = "trimStart must be a positive number of seconds"
 
 class CommandCreator {
 
@@ -72,21 +105,21 @@ class CommandCreator {
 
     fun doAction(args: Array<String>): String {
         if (args.isEmpty()) {
-            return "[Error] Missing parameter filename. Usage: java -jar ffmpeg-commands.jar filename.mkv [-additionalParameters]"
+            return MISSING_FILENAME
         }
 
         val parsedArgs = try {
             parseArgs(args)
         } catch (e: IllegalArgumentException) {
-            return "[Error] ${e.message}"
+            return "$ERROR_PREFIX ${e.message}"
         }
 
         if (parsedArgs.contains(ALIAS) && parsedArgs.contains(DOCKER)) {
-            return "[Error] Cannot use alias and docker options together"
+            return ALIAS_WITH_DOCKER
         }
 
         if (parsedArgs.contains(UNSTARTED) && !parsedArgs.contains(DOCKER)) {
-            return "[Error] -unstarted parameter can only be used with -docker"
+            return UNSTARTED_WITHOUT_DOCKER
         }
 
         val takeLanguages = languageList(parsedArgs).distinct()
@@ -95,11 +128,11 @@ class CommandCreator {
         val ffmpegResult = try {
             ffmpegWrapper.read(args[0])
         } catch (e: IOException) {
-            return "[Error] Could not run ffmpeg: ${e.message}"
+            return "$COULD_NOT_RUN_FFMPEG ${e.message}"
         }
 
         if (ffmpegResult.any { it.contains(FILE_DOES_NOT_EXIST) }) {
-            return "[Error] File ${args[0]} does not exist or can't be accessed."
+            return "$ERROR_PREFIX File ${args[0]} does not exist or can't be accessed."
         }
 
         val missingLanguageError = checkMissingLanguage(ffmpegResult, parsedArgs)
@@ -119,14 +152,14 @@ class CommandCreator {
             .filter { knownChannelTypes.contains(it.key) }
 
         if (streams["Video"].isNullOrEmpty()) {
-            return "[Error] No video stream found in ${args[0]}."
+            return "$ERROR_PREFIX No video stream found in ${args[0]}."
         }
 
         if (deinterlace) {
             try {
                 weightsInstaller.install()
             } catch (e: IOException) {
-                return "[Error] Could not install nnedi weights: ${e.message}"
+                return "$COULD_NOT_INSTALL_WEIGHTS ${e.message}"
             }
         }
 
@@ -135,15 +168,15 @@ class CommandCreator {
         val useUnstarted = parsedArgs.contains(UNSTARTED)
 
         val inputFile = if (useDocker) {
-            "/config/${filename.substringAfterLast("/")}"
+            "$DOCKER_CONFIG_DIR/${filename.substringAfterLast("/")}"
         } else {
             filename
         }
 
         val outputDir = if (useDocker) {
-            "/config/Output"
+            DOCKER_OUTPUT_DIR
         } else {
-            "Output"
+            LOCAL_OUTPUT_DIR
         }
 
         val commandPrefix = if (useDocker) {
@@ -158,17 +191,17 @@ class CommandCreator {
             ?: 0L
 
         val weightsDir = if (useDocker) {
-            "/weights"
+            DOCKER_WEIGHTS_DIR
         } else {
-            "\$HOME/.cache/ffmpeg-commands"
+            LOCAL_WEIGHTS_DIR
         }
 
         val videoFormat = videoFormat(streams, deinterlace, weightsDir)
-        val copyVideo = videoFormat == "copy"
+        val copyVideo = videoFormat == COPY
         val trimStart = parsedArgs[TRIM_START]
 
         if (trimStart != null && copyVideo) {
-            return "[Error] -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
+            return TRIM_START_ON_COPIED_VIDEO
         }
 
         // The seek lands on the keyframe before the cut, so copied streams need their earlier packets discarded.
@@ -192,7 +225,7 @@ class CommandCreator {
             val finalOutputFile = "$outputDir/$videoOutputName"
 
             val videoCommand = (commandPrefix + "-n $seek-i $inputFile " +
-                "-map 0:v:0 -c:v:0 $videoFormat " +
+                "$SOURCE_VIDEO_MAPPING $videoFormat " +
                 "$QUALITY_OPTIONS -f matroska " +
                 "$videoOutputFile").replace("  ", " ").trim()
 
@@ -203,11 +236,11 @@ class CommandCreator {
             }
 
             val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
-                "-map 1:v:0 -c:v:0 copy " +
+                "$ENCODED_VIDEO_MAPPING " +
                 "${audioMappings(streams, takeLanguages, parsedArgs)} " +
                 "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
                 attachmentMapping(streams) +
-                "$VERSION_TAG $discardBeforeCut-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+                "$VERSION_TAG $discardBeforeCut$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
 
             val finalVideoCommand = if (useDocker) {
@@ -238,13 +271,13 @@ class CommandCreator {
         }
 
         val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
-            "-map 0:v:0 -c:v:0 $videoFormat " +
+            "$SOURCE_VIDEO_MAPPING $videoFormat " +
             "${audioMappings(streams, takeLanguages, parsedArgs)} " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
             attachmentMapping(streams) +
             qualityOptions +
             discardBeforeCut +
-            "-max_muxing_queue_size 9999 -max_interleave_delta $interleaveDelta " +
+            "$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
             "$outputDir/${outputName(filename.substringAfterLast("/"))}")
             .replace("  ", " ")
             .trim()
@@ -263,7 +296,7 @@ class CommandCreator {
             .map { it.drop(1).substringBefore("=") }
             .forEach {
                 if (!knownParameters.contains(it)) {
-                    throw IllegalArgumentException("Unknown option $it")
+                    throw IllegalArgumentException("$UNKNOWN_OPTION $it")
                 }
             }
 
@@ -282,17 +315,17 @@ class CommandCreator {
 
         if (value != null) {
             if (value.isEmpty()) {
-                throw IllegalArgumentException("maxInterleaveDelta cannot be empty")
+                throw IllegalArgumentException(INTERLEAVE_DELTA_EMPTY)
             }
 
             try {
                 val num = value.toLong()
 
                 if (num < 0) {
-                    throw IllegalArgumentException("maxInterleaveDelta must be non-negative")
+                    throw IllegalArgumentException(INTERLEAVE_DELTA_NEGATIVE)
                 }
             } catch (e: NumberFormatException) {
-                throw IllegalArgumentException("maxInterleaveDelta must be an integer")
+                throw IllegalArgumentException(INTERLEAVE_DELTA_NOT_INTEGER)
             }
         }
     }
@@ -301,7 +334,7 @@ class CommandCreator {
         val value = parsedArgs[TRIM_START]
 
         if (value != null && (!positiveSeconds.matches(value) || value.toDouble() <= 0)) {
-            throw IllegalArgumentException("trimStart must be a positive number of seconds")
+            throw IllegalArgumentException(TRIM_START_NOT_POSITIVE)
         }
     }
 
@@ -325,11 +358,11 @@ class CommandCreator {
             if (matcher.matches()) {
                 when (matcher.group("type")) {
                     "Audio" -> if (!hasSetAudioLanguages) {
-                        return "[Error] Missing language for audio stream. Use -setAudioLanguages parameter to specify languages for audio streams without language tags."
+                        return MISSING_AUDIO_LANGUAGE
                     }
 
                     "Subtitle" -> if (!ignoreSubtitle) {
-                        return "[Error] Missing language for subtitle stream"
+                        return MISSING_SUBTITLE_LANGUAGE
                     }
                 }
             }
@@ -338,7 +371,7 @@ class CommandCreator {
     }
 
     private fun attachmentMapping(streams: Map<String, List<Stream>>) = if (streams.keys.contains("Attachment")) {
-        "-map 0:t -c:t copy "
+        "$ATTACHMENT_MAPPING "
     } else {
         ""
     }
@@ -346,15 +379,19 @@ class CommandCreator {
     private fun escape(filename: String): String = unsafeShellCharacters.replace(filename) { "\\${it.value}" }
 
     private fun dockerWrap(command: String, unstarted: Boolean, deinterlace: Boolean): String {
-        val volumePath = "\"\$(pwd)\""
-        val dockerCommand = if (unstarted) "create" else "run"
+        val dockerCommand = if (unstarted) {
+            "create"
+        } else {
+            "run"
+        }
+
         val weightsVolume = if (deinterlace) {
-            "-v \"\$HOME/.cache/ffmpeg-commands\":/weights "
+            "-v $DOCKER_WEIGHTS_VOLUME "
         } else {
             ""
         }
 
-        return "docker $dockerCommand --rm -it -v $volumePath:/config ${weightsVolume}linuxserver/ffmpeg $command"
+        return "docker $dockerCommand --rm -it -v $DOCKER_CONFIG_VOLUME ${weightsVolume}$DOCKER_IMAGE $command"
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(
@@ -366,9 +403,9 @@ class CommandCreator {
     private fun videoFormat(streams: Map<String, List<Stream>>, deinterlace: Boolean, weightsDir: String): String =
         if (deinterlace) {
             "$VIDEO_ENCODER $GOP_DEINTERLACED $ENCODER_OPTIONS " +
-                "-vf \"nnedi=weights=$weightsDir/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\""
+                "-vf \"nnedi=weights=$weightsDir/$WEIGHTS_FILE_NAME:$NNEDI_OPTIONS\""
         } else if (streams["Video"]!!.first().codec.startsWith("av1")) {
-            "copy"
+            COPY
         } else {
             "$VIDEO_ENCODER $GOP_PROGRESSIVE $ENCODER_OPTIONS"
         }
@@ -418,7 +455,9 @@ class CommandCreator {
                 .filter { (mappingIdx, _) -> mappingIdx >= 0 }
                 .sortedBy { (mappingIdx, _) -> mappingIdx }
                 .joinToString(" ") { (mappingIdx, lang) -> "-metadata:s:a:$mappingIdx language=$lang" }
-        } else ""
+        } else {
+            ""
+        }
 
         return listOfNotNull(audioPart, metadataPart)
             .filter { it.isNotEmpty() }
@@ -433,7 +472,7 @@ class CommandCreator {
                 Mapping(
                     index = it.first,
                     codec = it.second.codec,
-                    action = "copy"
+                    action = COPY
                 )
             )
         }
@@ -466,7 +505,7 @@ class CommandCreator {
         takeLanguages.forEach { lang ->
             streams["Subtitle"]?.forEachIndexed { idx, it ->
                 if (it.lang == lang) {
-                    subtitleCommands.add("-map $inputIndex:s:$idx -c:s:${subtitleCommands.size} copy ")
+                    subtitleCommands.add("-map $inputIndex:s:$idx -c:s:${subtitleCommands.size} $COPY ")
                 }
             }
         }
