@@ -52,7 +52,7 @@ object AudioTitle {
         "DTS-HD HRA" to "DTS-HD HRA"
     )
 
-    private val profile = Regex("""^\S+ \(([^)]*)\)""")
+    private val bracket = Regex("""\(([^)]*)\)""")
 
     fun forStream(codec: String): String {
         val fields = codec.split(", ")
@@ -86,10 +86,11 @@ object AudioTitle {
 
     private fun codecName(codecField: String): String? {
         val name = codecField.substringBefore(" ")
-        val profileName = profile.find(codecField)?.groupValues?.get(1)
+        // ffmpeg may print the decoder before the profile, e.g. "dts (dca) (DTS-HD MA)", so every bracket counts.
+        val brackets = bracket.findAll(codecField).map { it.groupValues[1] }.toList()
 
         if (name == "dts") {
-            return dtsProfileNames[profileName]
+            return brackets.firstNotNullOfOrNull { dtsProfileNames[it] }
         }
 
         if (name.startsWith("pcm_")) {
@@ -98,7 +99,7 @@ object AudioTitle {
 
         val baseName = codecNames[name]
 
-        if (baseName != null && profileName != null && profileName.contains("Atmos")) {
+        if (baseName != null && brackets.any { it.contains("Atmos") }) {
             return "$baseName Atmos"
         }
 
