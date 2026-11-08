@@ -57,11 +57,11 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:9 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 copy " +
-                "-map 0:a:1 -c:a:2 copy " +
-                "-map 0:a:4 -c:a:3 copy " +
-                "-map 0:a:5 -c:a:4 copy " +
+                "-map 0:a:9 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:0 -c:a:1 copy -metadata:s:a:1 title=\"Surround 5.1 (TrueHD)\" " +
+                "-map 0:a:1 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:4 -c:a:3 copy -metadata:s:a:3 title=\"Stereo (AC3)\" " +
+                "-map 0:a:5 -c:a:4 copy -metadata:s:a:4 title=\"Stereo (E-AC3)\" " +
                 "-map 0:s:1 -c:s:0 copy " +
                 "-map 0:s:8 -c:s:1 copy " +
                 "-map 0:s:13 -c:s:2 copy " +
@@ -99,14 +99,14 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:1 -c:a:1 copy " +
-                "-map 0:a:4 -c:a:2 copy " +
-                "-map 0:a:0 -c:a:3 ac3 " +
-                "-map 0:a:2 -c:a:4 copy " +
-                "-map 0:a:3 -c:a:5 copy " +
-                "-map 0:a:5 -c:a:6 copy " +
-                "-map 0:a:2 -c:a:7 ac3 " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (DTS-HD MA)\" " +
+                "-map 0:a:1 -c:a:1 copy -metadata:s:a:1 title=\"Surround 5.1 (DTS)\" " +
+                "-map 0:a:4 -c:a:2 copy -metadata:s:a:2 title=\"Stereo (DTS)\" " +
+                "-map 0:a:0 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:2 -c:a:4 copy -metadata:s:a:4 title=\"Surround 5.1 (DTS-HD MA)\" " +
+                "-map 0:a:3 -c:a:5 copy -metadata:s:a:5 title=\"Surround 5.1 (DTS)\" " +
+                "-map 0:a:5 -c:a:6 copy -metadata:s:a:6 title=\"Stereo (DTS)\" " +
+                "-map 0:a:2 -c:a:7 ac3 -metadata:s:a:7 title=\"Surround 5.1 (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -130,8 +130,8 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:1 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 copy " +
+                "-map 0:a:1 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
+                "-map 0:a:0 -c:a:1 copy -metadata:s:a:1 title=\"Stereo (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -160,12 +160,12 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:2 -c:a:0 copy " +
-                "-map 0:a:2 -c:a:1 ac3 " +
-                "-map 0:a:0 -c:a:2 copy " +
-                "-map 0:a:0 -c:a:3 ac3 " +
-                "-map 0:a:1 -c:a:4 copy " +
-                "-map 0:a:1 -c:a:5 ac3 " +
+                "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (MP3)\" " +
+                "-map 0:a:2 -c:a:1 ac3 -metadata:s:a:1 title=\"Stereo (AC3)\" " +
+                "-map 0:a:0 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:0 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:1 -c:a:4 copy -metadata:s:a:4 title=\"Stereo (AAC)\" " +
+                "-map 0:a:1 -c:a:5 ac3 -metadata:s:a:5 title=\"Stereo (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-map 0:t -c:t copy " +
@@ -192,10 +192,10 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 ac3 " +
-                "-map 0:a:1 -c:a:2 copy " +
-                "-map 0:a:1 -c:a:3 ac3 " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:0 -c:a:1 ac3 -metadata:s:a:1 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:1 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:1 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command

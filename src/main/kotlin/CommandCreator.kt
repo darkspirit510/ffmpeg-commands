@@ -35,6 +35,7 @@ private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
 // Marks which settings encoded the video stream; TOOL_VERSION is generated from the version in build.gradle.kts.
 private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION"
 private const val COPY = "copy"
+private const val AC3_DOWNMIX_CHANNELS = 6
 private const val SOURCE_VIDEO_MAPPING = "-map 0:v:0 -c:v:0"
 private const val ENCODED_VIDEO_MAPPING = "-map 1:v:0 -c:v:0 $COPY"
 private const val ATTACHMENT_MAPPING = "-map 0:t -c:t $COPY"
@@ -216,6 +217,12 @@ class CommandCreator {
             ""
         }
 
+        val audioPart = try {
+            audioMappings(streams, takeLanguages, parsedArgs)
+        } catch (e: IllegalArgumentException) {
+            return "$ERROR_PREFIX ${e.message}"
+        }
+
         // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
         val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
 
@@ -237,7 +244,7 @@ class CommandCreator {
 
             val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
                 "$ENCODED_VIDEO_MAPPING " +
-                "${audioMappings(streams, takeLanguages, parsedArgs)} " +
+                "$audioPart " +
                 "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
                 attachmentMapping(streams) +
                 "$VERSION_TAG $discardBeforeCut$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
@@ -272,7 +279,7 @@ class CommandCreator {
 
         val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
             "$SOURCE_VIDEO_MAPPING $videoFormat " +
-            "${audioMappings(streams, takeLanguages, parsedArgs)} " +
+            "$audioPart " +
             "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
             attachmentMapping(streams) +
             qualityOptions +
@@ -446,7 +453,7 @@ class CommandCreator {
             .toList()
 
         val audioPart = mappings
-            .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
+            .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}${audioTitle(mapping, idx)}" }
             .joinToString(" ")
 
         val metadataPart = if (noLangAssignments.isNotEmpty()) {
@@ -464,6 +471,24 @@ class CommandCreator {
             .joinToString(" ")
     }
 
+    private fun audioTitle(mapping: Mapping, outputIndex: Int): String {
+        try {
+            if (mapping.action == COPY) {
+                return " -metadata:s:a:$outputIndex title=\"${AudioTitle.forStream(mapping.codec)}\""
+            }
+
+            val downmix = if (AudioTitle.needsAc3Downmix(mapping.codec)) {
+                " -ac:a:$outputIndex $AC3_DOWNMIX_CHANNELS"
+            } else {
+                ""
+            }
+
+            return "$downmix -metadata:s:a:$outputIndex title=\"${AudioTitle.forAc3Copy(mapping.codec)}\""
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Audio stream #0:${mapping.streamIndex}: ${e.message} (${mapping.codec.trim()})")
+        }
+    }
+
     private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>, setAudioLangs: List<String>): List<Mapping> {
         val audioMappings = mutableListOf<Mapping>()
 
@@ -471,6 +496,7 @@ class CommandCreator {
             audioMappings.add(
                 Mapping(
                     index = it.first,
+                    streamIndex = it.second.index,
                     codec = it.second.codec,
                     action = COPY
                 )

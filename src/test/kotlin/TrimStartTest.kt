@@ -27,7 +27,7 @@ class TrimStartTest {
         val command = CommandCreator(FakeWrapper(source)).doAction(arrayOf("somefile.mkv", "-trimStart=28"))
 
         assertEquals(
-            "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy " +
+            "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -40,7 +40,7 @@ class TrimStartTest {
             .doAction(arrayOf("somefile.mkv", "-trimStart=28"))
 
         assertEquals(
-            "ffmpeg -n -ss 28 -i somefile.mkv -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy " +
+            "ffmpeg -n -ss 28 -i somefile.mkv -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-map 1:s:0 -c:s:0 copy -crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -56,7 +56,7 @@ class TrimStartTest {
             "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
                 "\n" +
                 "ffmpeg -n -ss 28 -i somefile.mkv -i Output/somefile_video.mkv -ss 28 -i somefile.mkv " +
-                "-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -map 2:s:0 -c:s:0 copy " +
+                "-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" -map 2:s:0 -c:s:0 copy " +
                 "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -95,7 +95,7 @@ class TrimStartTest {
             "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
                 "\n" +
                 "ffmpeg -n -ss 28 -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy " +
-                "-map 0:a:0 -c:a:0 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
