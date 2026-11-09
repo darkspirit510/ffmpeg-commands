@@ -447,7 +447,7 @@ class CommandCreator {
                     } else {
                         null
                     }
-                }, setAudioLangs)
+                })
             }
             .distinct()
             .toList()
@@ -457,11 +457,11 @@ class CommandCreator {
             .joinToString(" ")
 
         val metadataPart = if (noLangAssignments.isNotEmpty()) {
-            noLangAssignments.entries
-                .map { (streamIdx, lang) -> mappings.indexOfFirst { it.index == streamIdx } to lang }
-                .filter { (mappingIdx, _) -> mappingIdx >= 0 }
-                .sortedBy { (mappingIdx, _) -> mappingIdx }
-                .joinToString(" ") { (mappingIdx, lang) -> "-metadata:s:a:$mappingIdx language=$lang" }
+            mappings
+                .mapIndexedNotNull { mappingIdx, mapping ->
+                    noLangAssignments[mapping.index]?.let { lang -> "-metadata:s:a:$mappingIdx language=$lang" }
+                }
+                .joinToString(" ")
         } else {
             ""
         }
@@ -489,7 +489,7 @@ class CommandCreator {
         }
     }
 
-    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>, setAudioLangs: List<String>): List<Mapping> {
+    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>): List<Mapping> {
         val audioMappings = mutableListOf<Mapping>()
 
         sourceMappings.forEach {
@@ -503,7 +503,7 @@ class CommandCreator {
             )
         }
 
-        if (audioMappings.any { !it.codec.startsWith("ac3") } && setAudioLangs.isEmpty() && audioMappings.none {
+        if (audioMappings.any { !it.codec.startsWith("ac3") } && audioMappings.none {
                 it.codec.startsWith("ac3")
                     && !it.codec.contains("stereo, fltp, 192 kb/s")
             }) {

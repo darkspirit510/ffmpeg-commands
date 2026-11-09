@@ -8,7 +8,7 @@ plugins {
 
 group = "de.darkspirit510"
 // The single source of the tool version. The video stream of every encode is tagged with it, see AGENTS.md.
-version = "1.1"
+version = "1.2"
 
 repositories {
     mavenCentral()
