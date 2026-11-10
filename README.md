@@ -37,6 +37,38 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 - Audio streams are always ordered: German, English, then all additional languages.
 - When no AC3 stream is present, the tool adds an AC3 transcoded stream as the last audio track. This is necessary
   because some devices (like LG TVs) do not support DTS playback.
+- Every audio stream in the output gets a title made of its channel layout and codec, replacing whatever title the
+  source had (e.g. `Surround 7.1 (TrueHD Atmos)`, `Stereo (AAC)`). See [Audio titles](#audio-titles).
+
+## Audio titles
+
+The title is `<layout> (<codec>)`, read from the stream line of `ffmpeg -i`:
+
+| ffmpeg layout                                       | Layout       |
+|-----------------------------------------------------|--------------|
+| `mono`                                              | Mono         |
+| `stereo`, `downmix`                                 | Stereo       |
+| `2.1`                                               | Stereo 2.1   |
+| `3.0`, `3.0(back)`, `3.1`, `4.0`, `quad`, `4.1`, …  | Surround 3.0, Surround 3.1, Surround 4.0, … (suffix such as `(side)` dropped) |
+| `5.0`, `5.1`, `5.1(side)`, …                        | Surround 5.0, Surround 5.1 |
+| `6.0`, `hexagonal`, `6.1`, …                        | Surround 6.0, Surround 6.1 |
+| `7.0`, `7.1`, `7.1(wide)`, …                        | Surround 7.0, Surround 7.1 |
+| `octagonal`                                         | Surround 8.0 |
+
+| ffmpeg codec (profile)                               | Codec                         |
+|------------------------------------------------------|-------------------------------|
+| `ac3`, `eac3`, `truehd`                              | AC3, E-AC3, TrueHD            |
+| `eac3`/`truehd` with a Dolby Atmos profile           | E-AC3 Atmos, TrueHD Atmos     |
+| `dts (DTS)`, `dts (DTS-ES)`, `dts (DTS 96/24)`       | DTS                           |
+| `dts (DTS-HD MA)`, `dts (DTS-HD HRA)`                | DTS-HD MA, DTS-HD HRA         |
+| `dts (DTS-HD MA + DTS:X)`                            | DTS:X                         |
+| `aac`, `flac`, `opus`, `vorbis`, `mp3`, `mp2`        | AAC, FLAC, Opus, Vorbis, MP3, MP2 |
+| `pcm_*`                                              | PCM                           |
+
+An unknown layout (e.g. `6 channels`) or codec on an audio stream that ends up in the output aborts with an error, so
+the file can be inspected; streams dropped by the language filter are not checked. The added AC3 stream is titled by
+its own layout: a 6.x, 7.x or 8.0 source is downmixed with `-ac 6` and titled `Surround 5.1 (AC3)`, as AC3 carries at
+most 5.1 channels.
 
 Note: The maxInterleaveDelta parameter controls how ffmpeg interleaves audio and video packets. The default value of 0
 disables interleaving delta, which prevents "starting new cluster" spam but may cause muxer deadlocks with many audio
@@ -49,7 +81,8 @@ Note: The twoPassTranscode parameter generates two commands. Run them one after 
 
 1. ffmpeg encodes the video and the AC3 tracks into `Output/movie_intermediate.mkv`, without chapters or global tags.
 2. mkvmerge combines that file with the copied audio tracks, subtitles, chapters, attachments and global tags of the
-   source into `Output/movie.mkv`. The track order is the same as with a single command.
+   source into `Output/movie.mkv`. The track order is the same as with a single command. The AC3 tracks get their
+   [audio title](#audio-titles) in step 1, the copied audio tracks through mkvmerge's `--track-name`.
 
 This avoids ffmpeg's final mux, which breaks on sparse subtitle tracks (e.g. a forced track with a few lines and gaps of
 20 minutes): ffmpeg holds back the video until the next subtitle line and either writes the file badly interleaved or

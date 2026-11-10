@@ -227,6 +227,12 @@ class CommandCreator {
             ""
         }
 
+        val audio = try {
+            selection.audio()
+        } catch (e: IllegalArgumentException) {
+            return "$ERROR_PREFIX ${e.message}"
+        }
+
         // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
         val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
 
@@ -242,7 +248,8 @@ class CommandCreator {
 
             return twoPassCommands(
                 commandPrefix + "-n -i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat ",
-                selection,
+                audio,
+                selection.subtitles(),
                 inputFile,
                 outputDir,
                 outputName(filename.substringAfterLast("/")),
@@ -267,7 +274,7 @@ class CommandCreator {
 
         val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
             "$SOURCE_VIDEO_MAPPING $videoFormat " +
-            "${ffmpegTracks.audio(selection.audio())} " +
+            "${ffmpegTracks.audio(audio)} " +
             "${ffmpegTracks.subtitles(selection.subtitles(), subtitleInputIndex)} " +
             attachmentMapping(streams) +
             qualityOptions +
@@ -288,7 +295,8 @@ class CommandCreator {
     // of the source stalls on sparse subtitle tracks: it holds back the video until the next subtitle line.
     private fun twoPassCommands(
         videoPart: String,
-        selection: TrackSelection,
+        audio: List<Mapping>,
+        subtitles: List<Mapping>,
         inputFile: String,
         outputDir: String,
         outputName: String,
@@ -298,7 +306,7 @@ class CommandCreator {
         deinterlace: Boolean
     ): String {
         val intermediateFile = "$outputDir/${outputName.substringBeforeLast(".")}_intermediate.mkv"
-        val encodedAudio = selection.audio().filter { it.action != COPY }
+        val encodedAudio = audio.filter { it.action != COPY }
 
         val encodeCommand = (videoPart +
             "${ffmpegTracks.audio(encodedAudio)} " +
@@ -307,8 +315,8 @@ class CommandCreator {
             intermediateFile).replace("  ", " ").trim()
 
         val mkvmergeOptions = mkvmergeArguments.render(
-            selection.audio(),
-            selection.subtitles(),
+            audio,
+            subtitles,
             intermediateFile,
             inputFile,
             "$outputDir/$outputName"

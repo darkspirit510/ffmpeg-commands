@@ -33,7 +33,8 @@ class TrackSelection(
                             streamIndex = stream.index,
                             codec = stream.codec,
                             action = COPY,
-                            language = noLangAssignments[idx]
+                            language = noLangAssignments[idx],
+                            title = null
                         )
                     } else {
                         null
@@ -41,7 +42,7 @@ class TrackSelection(
                 })
             }
             .distinct()
-            .toList()
+            .map { it.copy(title = title(it)) }
     }
 
     fun subtitles(): List<Mapping> {
@@ -57,12 +58,26 @@ class TrackSelection(
                         streamIndex = stream.index,
                         codec = stream.codec,
                         action = COPY,
-                        language = null
+                        language = null,
+                        title = null
                     )
                 } else {
                     null
                 }
             }
+        }
+    }
+
+    // Throws for an unknown layout or codec, so the file can be inspected; dropped streams are never checked.
+    private fun title(mapping: Mapping): String {
+        try {
+            if (mapping.action == COPY) {
+                return AudioTitle.forStream(mapping.codec)
+            }
+
+            return AudioTitle.forAc3Copy(mapping.codec)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("Audio stream #0:${mapping.streamIndex}: ${e.message} (${mapping.codec.trim()})")
         }
     }
 

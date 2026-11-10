@@ -35,7 +35,7 @@ class TwoPassTest {
             "ffmpeg -n -i somefile.mkv $videoEncoding $passOneOptions Output/somefile_intermediate.mkv" +
                 "\n" +
                 "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
-                "-D -a 1 -S somefile.mkv --track-order 0:0,1:1",
+                "-D -a 1 --track-name 1:\"Stereo (AC3)\" -S somefile.mkv --track-order 0:0,1:1",
             command
         )
     }
@@ -45,11 +45,11 @@ class TwoPassTest {
         val command = CommandCreator(FakeWrapper(dtsSource)).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv $videoEncoding -map 0:a:1 -c:a:0 ac3 -map 0:a:0 -c:a:1 ac3 " +
+            "ffmpeg -n -i somefile.mkv $videoEncoding -map 0:a:1 -c:a:0 ac3 -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" -map 0:a:0 -c:a:1 ac3 -metadata:s:a:1 title=\"Surround 5.1 (AC3)\" " +
                 "$passOneOptions Output/somefile_intermediate.mkv" +
                 "\n" +
                 "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
-                "-D -a 2,1 -s 4,3 somefile.mkv --track-order 0:0,1:2,0:1,1:1,0:2,1:4,1:3",
+                "-D -a 2,1 --track-name 2:\"Surround 5.1 (DTS-HD MA)\" --track-name 1:\"Surround 5.1 (DTS-HD MA)\" -s 4,3 somefile.mkv --track-order 0:0,1:2,0:1,1:1,0:2,1:4,1:3",
             command
         )
     }
@@ -61,7 +61,7 @@ class TwoPassTest {
 
         assertEquals(
             "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
-                "-D -a 2,1 -S somefile.mkv --track-order 0:0,1:2,0:1,1:1,0:2",
+                "-D -a 2,1 --track-name 2:\"Surround 5.1 (DTS-HD MA)\" --track-name 1:\"Surround 5.1 (DTS-HD MA)\" -S somefile.mkv --track-order 0:0,1:2,0:1,1:1,0:2",
             command.lines()[1]
         )
     }
@@ -79,11 +79,51 @@ class TwoPassTest {
         ).doAction(arrayOf("somefile.mkv", "-twoPassTranscode", "-setAudioLanguages=deu"))
 
         assertEquals(
-            "ffmpeg -n -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 ac3 -metadata:s:a:0 language=deu " +
+            "ffmpeg -n -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 ac3 -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" -metadata:s:a:0 language=deu " +
                 "$passOneOptions Output/somefile_intermediate.mkv" +
                 "\n" +
                 "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
-                "-D -a 1 --language 1:deu -S somefile.mkv --track-order 0:0,1:1,0:1",
+                "-D -a 1 --language 1:deu --track-name 1:\"Surround 5.1 (DTS-HD MA)\" -S somefile.mkv --track-order 0:0,1:1,0:1",
+            command
+        )
+    }
+
+    @Test
+    fun `downmixes the ac3 encode of a 7_1 source in first pass`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            $matroskaInput
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: truehd (Dolby TrueHD + Dolby Atmos), 48000 Hz, 7.1, s32 (24 bit) (default)
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 ac3 -ac:a:0 6 -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" " +
+                "$passOneOptions Output/somefile_intermediate.mkv" +
+                "\n" +
+                "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
+                "-D -a 1 --track-name 1:\"Surround 7.1 (TrueHD Atmos)\" -S somefile.mkv --track-order 0:0,1:1,0:1",
+            command
+        )
+    }
+
+    @Test
+    fun `fails on an unknown channel layout of a copied audio stream`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+            $matroskaInput
+            Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
+            Stream #0:1(deu): Audio: ac3, 48000 Hz, 6 channels, fltp, 640 kb/s
+        """
+            )
+        ).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
+
+        assertEquals(
+            "[Error] Audio stream #0:1: unknown channel layout '6 channels' (ac3, 48000 Hz, 6 channels, fltp, 640 kb/s)",
             command
         )
     }
@@ -117,7 +157,7 @@ class TwoPassTest {
                 "\n" +
                 "[ ! -e Output/somefile.mkv ] && docker run --rm -it -v \"\$(pwd)\":/config --entrypoint mkvmerge jlesage/mkvtoolnix " +
                 "-o /config/Output/somefile.mkv /config/Output/somefile_intermediate.mkv " +
-                "-D -a 1 -S /config/somefile.mkv --track-order 0:0,1:1",
+                "-D -a 1 --track-name 1:\"Stereo (AC3)\" -S /config/somefile.mkv --track-order 0:0,1:1",
             command
         )
     }
@@ -130,7 +170,7 @@ class TwoPassTest {
         assertEquals(
             "docker create --rm -it -v \"\$(pwd)\":/config --entrypoint mkvmerge jlesage/mkvtoolnix " +
                 "-o /config/Output/somefile.mkv /config/Output/somefile_intermediate.mkv " +
-                "-D -a 1 -S /config/somefile.mkv --track-order 0:0,1:1",
+                "-D -a 1 --track-name 1:\"Stereo (AC3)\" -S /config/somefile.mkv --track-order 0:0,1:1",
             command.lines()[1]
         )
     }

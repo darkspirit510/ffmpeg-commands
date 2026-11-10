@@ -10,7 +10,8 @@ class MkvmergeArgumentsTest {
         streamIndex = streamIndex,
         codec = "dts",
         action = COPY,
-        language = null
+        language = null,
+        title = null
     )
 
     @Test
@@ -40,6 +41,20 @@ class MkvmergeArgumentsTest {
 
         assertEquals(
             "-o out.mkv intermediate.mkv -D -a 1 --language 1:deu -S movie.mkv --track-order 0:0,1:1,0:1",
+            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
+        )
+    }
+
+    @Test
+    fun `names copied tracks and leaves ac3 names to the first pass`() {
+        val audio = listOf(
+            copied(1).copy(language = "deu", title = "Surround 5.1 (DTS-HD MA)"),
+            copied(1).copy(action = AC3, title = "Surround 5.1 (AC3)")
+        )
+
+        assertEquals(
+            "-o out.mkv intermediate.mkv -D -a 1 --language 1:deu --track-name 1:\"Surround 5.1 (DTS-HD MA)\" " +
+                "-S movie.mkv --track-order 0:0,1:1,0:1",
             MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
         )
     }

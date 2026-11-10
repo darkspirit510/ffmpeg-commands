@@ -19,7 +19,7 @@ class DeinterlaceTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
-                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
@@ -36,7 +36,7 @@ class DeinterlaceTest {
                 "-n -i /config/somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=/weights/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
-                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv",
             command
         )
@@ -59,7 +59,7 @@ class DeinterlaceTest {
                 "\n" +
                 "[ ! -e Output/somefile.mkv ] && docker run --rm -it -v \"\$(pwd)\":/config --entrypoint mkvmerge jlesage/mkvtoolnix " +
                 "-o /config/Output/somefile.mkv /config/Output/somefile_intermediate.mkv " +
-                "-D -a 1 -S /config/somefile.mkv --track-order 0:0,1:1",
+                "-D -a 1 --track-name 1:\"Stereo (AC3)\" -S /config/somefile.mkv --track-order 0:0,1:1",
             command
         )
     }
@@ -80,7 +80,7 @@ class DeinterlaceTest {
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 480 -keyint_min 480 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-vf \"nnedi=weights=\$HOME/.cache/ffmpeg-commands/nnedi3_weights.bin:field=af:deint=interlaced:nns=n128:qual=slow\" " +
-                "-map 0:a:0 -c:a:0 copy " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
         )
