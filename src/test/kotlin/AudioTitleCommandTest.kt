@@ -28,18 +28,39 @@ class AudioTitleCommandTest {
     }
 
     @Test
-    fun `fails on an unknown channel layout of a mapped audio stream`() {
+    fun `titles an audio stream without channel layout by its channel count`() {
         val command = CommandCreator(
             FakeWrapper(
                 """
                 $video
-                Stream #0:1(deu): Audio: ac3, 48000 Hz, 6 channels, fltp, 640 kb/s
+                Stream #0:1(eng): Audio: pcm_s16le, 48000 Hz, 6 channels, s16, 4608 kb/s
                 """
             )
         ).doAction(arrayOf("movie.mkv"))
 
         assertEquals(
-            "[Error] Audio stream #0:1: unknown channel layout '6 channels' (ac3, 48000 Hz, 6 channels, fltp, 640 kb/s)",
+            "ffmpeg -n -i movie.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (PCM)\" " +
+                "-map 0:a:0 -c:a:1 ac3 -metadata:s:a:1 title=\"Surround 5.1 (AC3)\" " +
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/movie.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `fails on an unknown channel layout of a mapped audio stream`() {
+        val command = CommandCreator(
+            FakeWrapper(
+                """
+                $video
+                Stream #0:1(deu): Audio: ac3, 48000 Hz, 12 channels, fltp, 640 kb/s
+                """
+            )
+        ).doAction(arrayOf("movie.mkv"))
+
+        assertEquals(
+            "[Error] Audio stream #0:1: unknown channel layout '12 channels' (ac3, 48000 Hz, 12 channels, fltp, 640 kb/s)",
             command
         )
     }
@@ -50,7 +71,7 @@ class AudioTitleCommandTest {
             FakeWrapper(
                 """
                 $video
-                Stream #0:1(ita): Audio: ac3, 48000 Hz, 6 channels, fltp, 640 kb/s
+                Stream #0:1(ita): Audio: ac3, 48000 Hz, 12 channels, fltp, 640 kb/s
                 Stream #0:2(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
                 """
             )

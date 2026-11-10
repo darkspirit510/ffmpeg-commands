@@ -79,12 +79,39 @@ class AudioTitleTest {
     }
 
     @Test
+    fun `names a stream without channel layout by the layout ffmpeg assumes for its channel count`() {
+        val expected = mapOf(
+            "1 channels" to "Mono",
+            "2 channels" to "Stereo",
+            "3 channels" to "Stereo 2.1",
+            "4 channels" to "Surround 4.0",
+            "5 channels" to "Surround 5.0",
+            "6 channels" to "Surround 5.1",
+            "7 channels" to "Surround 6.1",
+            "8 channels" to "Surround 7.1"
+        )
+
+        expected.forEach { (layout, title) ->
+            assertEquals("$title (PCM)", AudioTitle.forStream("pcm_s16le, 48000 Hz, $layout, s16, 4608 kb/s"), layout)
+        }
+    }
+
+    @Test
     fun `rejects an unknown channel layout`() {
         val error = assertFailsWith<IllegalArgumentException> {
-            AudioTitle.forStream("ac3, 48000 Hz, 6 channels, fltp, 640 kb/s")
+            AudioTitle.forStream("ac3, 48000 Hz, 5.1.4, fltp, 640 kb/s")
         }
 
-        assertEquals("unknown channel layout '6 channels'", error.message)
+        assertEquals("unknown channel layout '5.1.4'", error.message)
+    }
+
+    @Test
+    fun `rejects an unknown channel count`() {
+        val error = assertFailsWith<IllegalArgumentException> {
+            AudioTitle.forStream("pcm_s16le, 48000 Hz, 12 channels, s16, 9216 kb/s")
+        }
+
+        assertEquals("unknown channel layout '12 channels'", error.message)
     }
 
     @Test
@@ -108,7 +135,7 @@ class AudioTitleTest {
 
     @Test
     fun `downmixes a layout the AC3 encoder does not support to 5_1 for the AC3 copy`() {
-        listOf("6.0", "hexagonal", "6.1", "7.0", "7.1", "7.1(wide)", "octagonal").forEach { layout ->
+        listOf("6.0", "hexagonal", "6.1", "7.0", "7.1", "7.1(wide)", "octagonal", "7 channels", "8 channels").forEach { layout ->
             val codec = "truehd (Dolby TrueHD + Dolby Atmos), 48000 Hz, $layout, s32 (24 bit)"
 
             assertEquals("Surround 5.1 (AC3)", AudioTitle.forAc3Copy(codec), layout)
