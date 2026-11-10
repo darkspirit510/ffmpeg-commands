@@ -34,7 +34,8 @@ private const val ENCODER_OPTIONS = "-pix_fmt yuv420p10le -svtav1-params tune=0:
 private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
 // Marks which settings encoded the video stream; TOOL_VERSION is generated from the version in build.gradle.kts.
 private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION"
-private const val COPY = "copy"
+const val COPY = "copy"
+const val AC3 = "ac3"
 private const val SOURCE_VIDEO_MAPPING = "-map 0:v:0 -c:v:0"
 private const val ENCODED_VIDEO_MAPPING = "-map 1:v:0 -c:v:0 $COPY"
 private const val ATTACHMENT_MAPPING = "-map 0:t -c:t $COPY"
@@ -197,6 +198,8 @@ class CommandCreator {
         }
 
         val videoFormat = videoFormat(streams, deinterlace, weightsDir)
+        val selection = TrackSelection(streams, takeLanguages, parsedArgs)
+        val ffmpegTracks = FfmpegTrackArguments()
         val copyVideo = videoFormat == COPY
         val trimStart = parsedArgs[TRIM_START]
 
@@ -209,7 +212,7 @@ class CommandCreator {
         val discardBeforeCut = trimStart?.let { "-copypriorss 0 " } ?: ""
 
         // After a seek, subtitles sharing an input with audio ended audio encodes right after the cut on real files.
-        val separateSubtitles = trimStart != null && subtitleMappings(streams, takeLanguages, parsedArgs, 0).isNotEmpty()
+        val separateSubtitles = trimStart != null && selection.subtitles().isNotEmpty()
         val subtitleInput = if (separateSubtitles) {
             "$seek-i $inputFile "
         } else {
@@ -237,8 +240,8 @@ class CommandCreator {
 
             val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
                 "$ENCODED_VIDEO_MAPPING " +
-                "${audioMappings(streams, takeLanguages, parsedArgs)} " +
-                "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
+                "${ffmpegTracks.audio(selection.audio())} " +
+                "${ffmpegTracks.subtitles(selection.subtitles(), subtitleInputIndex)} " +
                 attachmentMapping(streams) +
                 "$VERSION_TAG $discardBeforeCut$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
                 "$finalOutputFile").replace("  ", " ").trim()
@@ -272,8 +275,8 @@ class CommandCreator {
 
         val baseCommand = (commandPrefix + "-n $seek-i $inputFile $subtitleInput" +
             "$SOURCE_VIDEO_MAPPING $videoFormat " +
-            "${audioMappings(streams, takeLanguages, parsedArgs)} " +
-            "${subtitleMappings(streams, takeLanguages, parsedArgs, subtitleInputIndex)} " +
+            "${ffmpegTracks.audio(selection.audio())} " +
+            "${ffmpegTracks.subtitles(selection.subtitles(), subtitleInputIndex)} " +
             attachmentMapping(streams) +
             qualityOptions +
             discardBeforeCut +
@@ -409,109 +412,6 @@ class CommandCreator {
         } else {
             "$VIDEO_ENCODER $GOP_PROGRESSIVE $ENCODER_OPTIONS"
         }
-
-    private fun audioMappings(
-        streams: Map<String, List<Stream>>,
-        takeLanguages: List<String>,
-        parsedArgs: Map<String, String>
-    ): String {
-        val audioStreams = streams["Audio"] ?: emptyList()
-        val setAudioLangs = parsedArgs[SET_AUDIO_LANGUAGES]?.split(",") ?: emptyList()
-
-        val noLangAssignments = mutableMapOf<Int, String>()
-
-        if (setAudioLangs.isNotEmpty()) {
-            var langIdx = 0
-            audioStreams.forEachIndexed { idx, stream ->
-                if (stream.lang == "???" && langIdx < setAudioLangs.size) {
-                    noLangAssignments[idx] = setAudioLangs[langIdx]
-                    langIdx++
-                }
-            }
-        }
-
-        val mappings = takeLanguages
-            .flatMap { lang ->
-                audioMappingsFor(audioStreams.mapIndexedNotNull { idx, stream ->
-                    if (stream.lang == lang ||
-                        (stream.lang == "???" && noLangAssignments[idx] == lang)
-                    ) {
-                        Pair(idx, stream)
-                    } else {
-                        null
-                    }
-                })
-            }
-            .distinct()
-            .toList()
-
-        val audioPart = mappings
-            .mapIndexed { idx, mapping -> "-map 0:a:${mapping.index} -c:a:$idx ${mapping.action}" }
-            .joinToString(" ")
-
-        val metadataPart = if (noLangAssignments.isNotEmpty()) {
-            mappings
-                .mapIndexedNotNull { mappingIdx, mapping ->
-                    noLangAssignments[mapping.index]?.let { lang -> "-metadata:s:a:$mappingIdx language=$lang" }
-                }
-                .joinToString(" ")
-        } else {
-            ""
-        }
-
-        return listOfNotNull(audioPart, metadataPart)
-            .filter { it.isNotEmpty() }
-            .joinToString(" ")
-    }
-
-    private fun audioMappingsFor(sourceMappings: List<Pair<Int, Stream>>): List<Mapping> {
-        val audioMappings = mutableListOf<Mapping>()
-
-        sourceMappings.forEach {
-            audioMappings.add(
-                Mapping(
-                    index = it.first,
-                    codec = it.second.codec,
-                    action = COPY
-                )
-            )
-        }
-
-        if (audioMappings.any { !it.codec.startsWith("ac3") } && audioMappings.none {
-                it.codec.startsWith("ac3")
-                    && !it.codec.contains("stereo, fltp, 192 kb/s")
-            }) {
-            val lastNonAC3Index = audioMappings
-                .indexOf(audioMappings.last { !it.codec.startsWith("ac3") })
-            val transcodeSource = audioMappings.first { !it.codec.startsWith("ac3") }
-            audioMappings.add(lastNonAC3Index + 1, transcodeSource.copy(action = "ac3"))
-        }
-
-        return audioMappings
-    }
-
-    private fun subtitleMappings(
-        streams: Map<String, List<Stream>>,
-        takeLanguages: List<String>,
-        parsedArgs: Map<String, String>,
-        inputIndex: Int
-    ): String {
-        if (parsedArgs.contains(DROP_SUBTITLES)) {
-            return ""
-        }
-
-        val subtitleCommands = mutableListOf<String>()
-
-        takeLanguages.forEach { lang ->
-            streams["Subtitle"]?.forEachIndexed { idx, it ->
-                if (it.lang == lang) {
-                    subtitleCommands.add("-map $inputIndex:s:$idx -c:s:${subtitleCommands.size} $COPY ")
-                }
-            }
-        }
-
-        return subtitleCommands.joinToString("") { it }
-    }
 
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
 }
