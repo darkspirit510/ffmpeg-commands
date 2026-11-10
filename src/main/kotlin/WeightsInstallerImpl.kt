@@ -4,7 +4,7 @@ import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-private const val WEIGHTS_FILE_NAME = "nnedi3_weights.bin"
+internal const val WEIGHTS_FILE_NAME = "nnedi3_weights.bin"
 private const val WEIGHTS_FILE_SIZE = 13574928L
 
 class WeightsInstallerImpl(

@@ -3,11 +3,8 @@ import kotlin.test.assertEquals
 
 class RealWorldExamplesTest {
 
-    @Test
-    fun `handles real world example (1)`() {
-        val command = CommandCreator(
-            FakeWrapper(
-                """
+    private val example1 = """
+            Input #0, matroska,webm, from 'somefile.mkv':
             Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
             Stream #0:1(eng): Audio: truehd, 48000 Hz, 5.1(side), s32 (24 bit) (default)
             Stream #0:2(eng): Audio: ac3, 48000 Hz, 5.1(side), fltp, 640 kb/s
@@ -51,17 +48,19 @@ class RealWorldExamplesTest {
             Stream #0:40(tur): Subtitle: hdmv_pgs_subtitle
             Stream #0:41(tur): Subtitle: hdmv_pgs_subtitle
             """
-            )
-        ).doAction(arrayOf("somefile.mkv"))
+
+    @Test
+    fun `handles real world example (1)`() {
+        val command = CommandCreator(FakeWrapper(example1)).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:9 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 copy " +
-                "-map 0:a:1 -c:a:2 copy " +
-                "-map 0:a:4 -c:a:3 copy " +
-                "-map 0:a:5 -c:a:4 copy " +
+                "-map 0:a:9 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:0 -c:a:1 copy -metadata:s:a:1 title=\"Surround 5.1 (TrueHD)\" " +
+                "-map 0:a:1 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:4 -c:a:3 copy -metadata:s:a:3 title=\"Stereo (AC3)\" " +
+                "-map 0:a:5 -c:a:4 copy -metadata:s:a:4 title=\"Stereo (E-AC3)\" " +
                 "-map 0:s:1 -c:s:0 copy " +
                 "-map 0:s:8 -c:s:1 copy " +
                 "-map 0:s:13 -c:s:2 copy " +
@@ -72,6 +71,26 @@ class RealWorldExamplesTest {
                 "-map 0:s:16 -c:s:7 copy " +
                 "-map 0:s:27 -c:s:8 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
+            command
+        )
+    }
+
+    @Test
+    fun `handles real world example (1) in two passes`() {
+        val command = CommandCreator(FakeWrapper(example1)).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
+
+        assertEquals(
+            "ffmpeg -n -i somefile.mkv " +
+                "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
+                "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -map_chapters -1 -map_metadata:g -1 " +
+                "-max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile_intermediate.mkv" +
+                "\n" +
+                "[ ! -e Output/somefile.mkv ] && mkvmerge -o Output/somefile.mkv Output/somefile_intermediate.mkv " +
+                "-D -a 10,1,2,5,6 " +
+                "--track-name 10:\"Surround 5.1 (AC3)\" --track-name 1:\"Surround 5.1 (TrueHD)\" " +
+                "--track-name 2:\"Surround 5.1 (AC3)\" --track-name 5:\"Stereo (AC3)\" --track-name 6:\"Stereo (E-AC3)\" " +
+                "-s 13,20,25,26,12,21,27,28,39 somefile.mkv " +
+                "--track-order 0:0,1:10,1:1,1:2,1:5,1:6,1:13,1:20,1:25,1:26,1:12,1:21,1:27,1:28,1:39",
             command
         )
     }
@@ -99,14 +118,14 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:1 -c:a:1 copy " +
-                "-map 0:a:4 -c:a:2 copy " +
-                "-map 0:a:0 -c:a:3 ac3 " +
-                "-map 0:a:2 -c:a:4 copy " +
-                "-map 0:a:3 -c:a:5 copy " +
-                "-map 0:a:5 -c:a:6 copy " +
-                "-map 0:a:2 -c:a:7 ac3 " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (DTS-HD MA)\" " +
+                "-map 0:a:1 -c:a:1 copy -metadata:s:a:1 title=\"Surround 5.1 (DTS)\" " +
+                "-map 0:a:4 -c:a:2 copy -metadata:s:a:2 title=\"Stereo (DTS)\" " +
+                "-map 0:a:0 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:2 -c:a:4 copy -metadata:s:a:4 title=\"Surround 5.1 (DTS-HD MA)\" " +
+                "-map 0:a:3 -c:a:5 copy -metadata:s:a:5 title=\"Surround 5.1 (DTS)\" " +
+                "-map 0:a:5 -c:a:6 copy -metadata:s:a:6 title=\"Stereo (DTS)\" " +
+                "-map 0:a:2 -c:a:7 ac3 -metadata:s:a:7 title=\"Surround 5.1 (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -130,8 +149,8 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:1 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 copy " +
+                "-map 0:a:1 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
+                "-map 0:a:0 -c:a:1 copy -metadata:s:a:1 title=\"Stereo (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
@@ -160,12 +179,12 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:2 -c:a:0 copy " +
-                "-map 0:a:2 -c:a:1 ac3 " +
-                "-map 0:a:0 -c:a:2 copy " +
-                "-map 0:a:0 -c:a:3 ac3 " +
-                "-map 0:a:1 -c:a:4 copy " +
-                "-map 0:a:1 -c:a:5 ac3 " +
+                "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (MP3)\" " +
+                "-map 0:a:2 -c:a:1 ac3 -metadata:s:a:1 title=\"Stereo (AC3)\" " +
+                "-map 0:a:0 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:0 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:1 -c:a:4 copy -metadata:s:a:4 title=\"Stereo (AAC)\" " +
+                "-map 0:a:1 -c:a:5 ac3 -metadata:s:a:5 title=\"Stereo (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-map 0:s:1 -c:s:1 copy " +
                 "-map 0:t -c:t copy " +
@@ -192,10 +211,10 @@ class RealWorldExamplesTest {
         assertEquals(
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
-                "-map 0:a:0 -c:a:0 copy " +
-                "-map 0:a:0 -c:a:1 ac3 " +
-                "-map 0:a:1 -c:a:2 copy " +
-                "-map 0:a:1 -c:a:3 ac3 " +
+                "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:0 -c:a:1 ac3 -metadata:s:a:1 title=\"Surround 5.1 (AC3)\" " +
+                "-map 0:a:1 -c:a:2 copy -metadata:s:a:2 title=\"Surround 5.1 (AAC)\" " +
+                "-map 0:a:1 -c:a:3 ac3 -metadata:s:a:3 title=\"Surround 5.1 (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy " +
                 "-crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
             command
