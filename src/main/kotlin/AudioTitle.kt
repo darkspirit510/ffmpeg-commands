@@ -81,8 +81,21 @@ object AudioTitle {
 
     private val ac3DownmixedLayoutNames = setOf("Surround 6.0", "Surround 6.1", "Surround 7.0", "Surround 7.1", "Surround 8.0")
 
+    // Without a layout in the file, ffmpeg prints "6 channels" and assumes its default layout for that count.
+    private val channelCountLayouts = mapOf(
+        "1 channels" to "mono",
+        "2 channels" to "stereo",
+        "3 channels" to "2.1",
+        "4 channels" to "4.0",
+        "5 channels" to "5.0",
+        "6 channels" to "5.1",
+        "7 channels" to "6.1",
+        "8 channels" to "7.1"
+    )
+
     private fun layoutName(layout: String): String =
-        layoutNames[layout] ?: throw IllegalArgumentException("unknown channel layout '$layout'")
+        layoutNames[channelCountLayouts[layout] ?: layout]
+            ?: throw IllegalArgumentException("unknown channel layout '$layout'")
 
     private fun codecName(codecField: String): String? {
         val name = codecField.substringBefore(" ")

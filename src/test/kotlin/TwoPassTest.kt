@@ -117,13 +117,13 @@ class TwoPassTest {
                 """
             $matroskaInput
             Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
-            Stream #0:1(deu): Audio: ac3, 48000 Hz, 6 channels, fltp, 640 kb/s
+            Stream #0:1(deu): Audio: ac3, 48000 Hz, 12 channels, fltp, 640 kb/s
         """
             )
         ).doAction(arrayOf("somefile.mkv", "-twoPassTranscode"))
 
         assertEquals(
-            "[Error] Audio stream #0:1: unknown channel layout '6 channels' (ac3, 48000 Hz, 6 channels, fltp, 640 kb/s)",
+            "[Error] Audio stream #0:1: unknown channel layout '12 channels' (ac3, 48000 Hz, 12 channels, fltp, 640 kb/s)",
             command
         )
     }
