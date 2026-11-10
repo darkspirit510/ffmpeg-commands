@@ -27,7 +27,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
 | `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 0)                              |
-| `twoPassTranscode`              | Generate two separate commands for two-pass transcoding (video first, then audio+merge)   |
+| `twoPassTranscode`              | Encode video and AC3 with ffmpeg, then mux with the source tracks using mkvmerge          |
 | `deinterlace`                   | Deinterlace with ffmpeg's `nnedi` filter at double frame rate (e.g. 25i → 50p)            |
 | `trimStart`                     | Cut the given number of seconds from the start of all streams (e.g. `-trimStart=28.5`)    |
 
@@ -77,9 +77,21 @@ to set a positive value or use the twoPassTranscode parameter.
 See [this link](https://www.reddit.com/r/ffmpeg/comments/efddfs/starting_new_cluster_due_to_timestamp/) for more
 information.
 
-Note: The twoPassTranscode parameter generates two commands for processing complex files in two passes. This can help
-avoid muxer issues with files that have many audio tracks or high bitrates. Run the first command to transcode video,
-then run the second command to process audio and merge with the video.
+Note: The twoPassTranscode parameter generates two commands. Run them one after the other:
+
+1. ffmpeg encodes the video and the AC3 tracks into `Output/movie_intermediate.mkv`, without chapters or global tags.
+2. mkvmerge combines that file with the copied audio tracks, subtitles, chapters, attachments and global tags of the
+   source into `Output/movie.mkv`. The track order is the same as with a single command. The AC3 tracks get their
+   [audio title](#audio-titles) in step 1, the copied audio tracks through mkvmerge's `--track-name`.
+
+This avoids ffmpeg's final mux, which breaks on sparse subtitle tracks (e.g. a forced track with a few lines and gaps of
+20 minutes): ffmpeg holds back the video until the next subtitle line and either writes the file badly interleaved or
+buffers it in RAM until it runs out of memory. With `-docker`, mkvmerge runs in `jlesage/mkvtoolnix`; otherwise the
+host's `mkvmerge` is used (`-alias` only changes the ffmpeg command). mkvmerge has no `-n` and overwrites silently, so
+the mux command starts with `[ ! -e Output/movie.mkv ] &&` and does nothing when the output exists; with `-unstarted`
+the guard is left out, since it would run when the container is created. The intermediate file is not deleted.
+mkvmerge selects source tracks by ffmpeg's stream index, so only Matroska sources are supported. `-trimStart` cannot be
+combined with `-twoPassTranscode` yet. When the video is copied (AV1 source), the parameter is ignored.
 
 Note: The deinterlace parameter adds `-vf nnedi=...:field=af:deint=interlaced:nns=n128:qual=slow`, doubles the keyframe
 interval to 480 and re-encodes AV1 sources instead of copying them. With `-twoPassTranscode` the filter is applied in
@@ -89,8 +101,7 @@ The bundled `nnedi3_weights.bin` comes from [vapoursynth-nnedi3](https://github.
 is licensed under the GPLv2, see `src/main/resources/NNEDI3_WEIGHTS_LICENSE.txt`.
 
 Note: The trimStart parameter adds `-ss` to the source input and `-copypriorss 0` to the output, which keeps copied
-audio and subtitles from starting at the keyframe before the cut. With `-twoPassTranscode` both commands seek the
-source, and the second command leaves the already trimmed `_video.mkv` untouched. AV1 sources are rejected, because a
+audio and subtitles from starting at the keyframe before the cut. AV1 sources are rejected, because a
 copied video stream can only be cut at a keyframe; with `-deinterlace` they are re-encoded and can be trimmed. A subtitle
 still on screen at the cut is dropped; chapters are shifted to the new start. Subtitles are read through a second `-ss`
 input of the same file: on a real file, subtitles sharing an input with audio made the AC3 encodes end right after the cut.
@@ -104,7 +115,7 @@ into the video stream of the final file:
 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=1.0
 ```
 
-With `-twoPassTranscode` the tag is set in the second (mux) command; the intermediate `_video.mkv` has none. When the
+With `-twoPassTranscode` the tag is set in the first (ffmpeg) command, and mkvmerge keeps it in the final file. When the
 video is copied (AV1 source), the tool adds no tag, since nothing was encoded. ffmpeg still copies an existing tag from
 the source, so a re-muxed file keeps the version it was encoded with.
 

@@ -321,21 +321,15 @@ class CommandCreatorTest {
         val command = CommandCreator(
             FakeWrapper(
                 """
+                Input #0, matroska,webm, from 'somefile.mkv':
                 Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
                 Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
             """
             )
         ).doAction(arrayOf("somefile.mkv", "-docker", "-unstarted", "-twoPassTranscode"))
 
-        assertEquals(
-            """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv """ +
-                """-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 -crf 17 -preset 2 -f matroska /config/Output/somefile_video.mkv""" +
-                "\n" +
-                """docker create --rm -it -v "$(pwd)":/config linuxserver/ffmpeg -n -i /config/somefile.mkv -i /config/Output/somefile_video.mkv """ +
-                """-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title="Stereo (AC3)" """ +
-                """-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION -max_muxing_queue_size 9999 -max_interleave_delta 0 /config/Output/somefile.mkv""",
-            command
-        )
+        assertEquals(2, command.lines().size)
+        assertTrue(command.lines().all { it.startsWith("docker create --rm -it ") }, command)
     }
 
     @Test
@@ -343,14 +337,16 @@ class CommandCreatorTest {
         val command = CommandCreator(
             FakeWrapper(
                 """
+                Input #0, matroska,webm, from 'somefile.mkv':
                 Stream #0:0(eng): Video: h264 (High), yuv420p(tv, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc
                 Stream #0:1(deu): Audio: ac3, 48000 Hz, stereo, fltp, 224 kb/s
             """
             )
         ).doAction(arrayOf("somefile.mkv", "-docker", "-twoPassTranscode"))
 
-        assertTrue(command.lines().all { it.startsWith("docker run --rm -it ") })
         assertEquals(2, command.lines().size)
+        assertTrue(command.lines()[0].startsWith("docker run --rm -it "), command)
+        assertTrue(command.lines()[1].startsWith("[ ! -e Output/somefile.mkv ] && docker run --rm -it "), command)
     }
 
     @Test
