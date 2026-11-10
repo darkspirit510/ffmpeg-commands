@@ -23,6 +23,7 @@ const val MAX_INTERLEAVE_DELTA = "maxInterleaveDelta"
 const val TWO_PASS_TRANSCODE = "twoPassTranscode"
 const val DEINTERLACE = "deinterlace"
 const val TRIM_START = "trimStart"
+const val REDUCE_RAM = "reduceRAM"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 // ffmpeg stops probing once all streams are resolved and buffers what it read until the packets are processed.
@@ -33,6 +34,10 @@ private const val GOP_DEINTERLACED = "-g 480 -keyint_min 480"
 // 10-bit output keeps near-black gradients intact even for 8-bit sources; tune=0 favours visual quality over PSNR,
 // variance boost spends extra bits on flat, low-contrast areas.
 private const val ENCODER_OPTIONS = "-pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1"
+// SVT-AV1 levels above 3 buffer extra mini-GOPs in CRF mode, the auto level counts the host CPUs and goes up to 6.
+// The level only changes speed, CRF output stays the same; decoder threads hold frames in flight as well.
+private const val LOW_PARALLELISM = ":lp=3"
+private const val DECODER_THREADS = "-threads 4 "
 private const val QUALITY_OPTIONS = "-crf 17 -preset 2"
 // Marks which settings encoded the video stream; TOOL_VERSION is generated from the version in build.gradle.kts.
 private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION"
@@ -67,6 +72,8 @@ private const val COULD_NOT_RUN_FFMPEG = "$ERROR_PREFIX Could not run ffmpeg:"
 private const val COULD_NOT_INSTALL_WEIGHTS = "$ERROR_PREFIX Could not install nnedi weights:"
 private const val TRIM_START_ON_COPIED_VIDEO =
     "$ERROR_PREFIX -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
+private const val REDUCE_RAM_ON_COPIED_VIDEO =
+    "$ERROR_PREFIX -reduceRAM cannot be used on AV1 sources, the copied video stream is not encoded"
 private const val TRIM_START_WITH_TWO_PASS = "$ERROR_PREFIX -trimStart cannot be used with -twoPassTranscode yet"
 private const val TWO_PASS_WITHOUT_MATROSKA = "$ERROR_PREFIX -twoPassTranscode only supports Matroska sources"
 private const val MISSING_AUDIO_LANGUAGE =
@@ -96,7 +103,8 @@ class CommandCreator {
         MAX_INTERLEAVE_DELTA,
         TWO_PASS_TRANSCODE,
         DEINTERLACE,
-        TRIM_START
+        TRIM_START,
+        REDUCE_RAM
     )
 
     private val ffmpegTracks = FfmpegTrackArguments()
@@ -209,13 +217,24 @@ class CommandCreator {
             LOCAL_WEIGHTS_DIR
         }
 
-        val videoFormat = videoFormat(streams, deinterlace, weightsDir)
+        val reduceRam = parsedArgs.contains(REDUCE_RAM)
+        val videoFormat = videoFormat(streams, deinterlace, weightsDir, reduceRam)
         val selection = TrackSelection(streams, takeLanguages, parsedArgs)
         val copyVideo = videoFormat == COPY
         val trimStart = parsedArgs[TRIM_START]
 
         if (trimStart != null && copyVideo) {
             return TRIM_START_ON_COPIED_VIDEO
+        }
+
+        if (reduceRam && copyVideo) {
+            return REDUCE_RAM_ON_COPIED_VIDEO
+        }
+
+        val decoderThreads = if (reduceRam) {
+            DECODER_THREADS
+        } else {
+            ""
         }
 
         val probe = if (ffmpegResult.any { unprobedSubtitle.containsMatchIn(it) }) {
@@ -256,7 +275,7 @@ class CommandCreator {
             }
 
             return twoPassCommands(
-                commandPrefix + "-n $probe-i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat ",
+                commandPrefix + "-n $probe$decoderThreads-i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat ",
                 audio,
                 selection.subtitles(),
                 inputFile,
@@ -281,7 +300,7 @@ class CommandCreator {
             0
         }
 
-        val baseCommand = (commandPrefix + "-n $probe$seek-i $inputFile $subtitleInput" +
+        val baseCommand = (commandPrefix + "-n $probe$decoderThreads$seek-i $inputFile $subtitleInput" +
             "$SOURCE_VIDEO_MAPPING $videoFormat " +
             "${ffmpegTracks.audio(audio)} " +
             "${ffmpegTracks.subtitles(selection.subtitles(), subtitleInputIndex)} " +
@@ -474,15 +493,27 @@ class CommandCreator {
             ?: emptyList()
     )
 
-    private fun videoFormat(streams: Map<String, List<Stream>>, deinterlace: Boolean, weightsDir: String): String =
-        if (deinterlace) {
-            "$VIDEO_ENCODER $GOP_DEINTERLACED $ENCODER_OPTIONS " +
+    private fun videoFormat(
+        streams: Map<String, List<Stream>>,
+        deinterlace: Boolean,
+        weightsDir: String,
+        reduceRam: Boolean
+    ): String {
+        val encoderOptions = if (reduceRam) {
+            ENCODER_OPTIONS + LOW_PARALLELISM
+        } else {
+            ENCODER_OPTIONS
+        }
+
+        return if (deinterlace) {
+            "$VIDEO_ENCODER $GOP_DEINTERLACED $encoderOptions " +
                 "-vf \"nnedi=weights=$weightsDir/$WEIGHTS_FILE_NAME:$NNEDI_OPTIONS\""
         } else if (streams["Video"]!!.first().codec.startsWith("av1")) {
             COPY
         } else {
-            "$VIDEO_ENCODER $GOP_PROGRESSIVE $ENCODER_OPTIONS"
+            "$VIDEO_ENCODER $GOP_PROGRESSIVE $encoderOptions"
         }
+    }
 
     private fun outputName(filename: String) = "${filename.substringBeforeLast(".")}.mkv"
 }

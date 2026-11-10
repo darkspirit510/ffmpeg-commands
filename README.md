@@ -30,6 +30,7 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `twoPassTranscode`              | Encode video and AC3 with ffmpeg, then mux with the source tracks using mkvmerge          |
 | `deinterlace`                   | Deinterlace with ffmpeg's `nnedi` filter at double frame rate (e.g. 25i → 50p)            |
 | `trimStart`                     | Cut the given number of seconds from the start of all streams (e.g. `-trimStart=28.5`)    |
+| `reduceRAM`                     | Encode with less parallelism to lower the memory use; slower, same output                 |
 
 ## Behavior
 
@@ -105,6 +106,12 @@ audio and subtitles from starting at the keyframe before the cut. AV1 sources ar
 copied video stream can only be cut at a keyframe; with `-deinterlace` they are re-encoded and can be trimmed. A subtitle
 still on screen at the cut is dropped; chapters are shifted to the new start. Subtitles are read through a second `-ss`
 input of the same file: on a real file, subtitles sharing an input with audio made the AC3 encodes end right after the cut.
+
+Note: The reduceRAM parameter adds `:lp=3` to `-svtav1-params` and `-threads 4` before the video input. SVT-AV1 picks its
+level of parallelism from the host's CPU count (Docker CPU limits don't change it), up to level 6, which in CRF mode
+buffers seven extra mini-GOPs of frames; levels 1 to 3 buffer none. The encode gets slower. The CRF output and the
+version tag stay the same. With `-twoPassTranscode` only the ffmpeg pass changes. AV1 sources are rejected, since their
+video is copied and not encoded.
 
 Note: A PGS subtitle track whose first subtitle starts late makes ffmpeg warn `Could not find codec parameters ...
 unspecified size`. The warning is harmless, as copied subtitles stay intact. When it shows up while the file is read,
