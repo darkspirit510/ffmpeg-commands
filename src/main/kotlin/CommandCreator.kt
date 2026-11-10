@@ -37,14 +37,19 @@ private const val VERSION_TAG = "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_V
 const val COPY = "copy"
 const val AC3 = "ac3"
 private const val SOURCE_VIDEO_MAPPING = "-map 0:v:0 -c:v:0"
-private const val ENCODED_VIDEO_MAPPING = "-map 1:v:0 -c:v:0 $COPY"
 private const val ATTACHMENT_MAPPING = "-map 0:t -c:t $COPY"
 private const val MUXING_QUEUE_OPTION = "-max_muxing_queue_size 9999"
+// The intermediate file of -twoPassTranscode carries no chapters or global tags; mkvmerge takes them from the source.
+// A bare -map_metadata -1 would also drop the stream tags, i.e. the language and title of the AC3 encodes.
+private const val NO_CHAPTERS_OR_GLOBAL_METADATA = "-map_chapters -1 -map_metadata:g -1"
+private const val MATROSKA_INPUT = "Input #0, matroska"
 private const val NNEDI_OPTIONS = "field=af:deint=interlaced:nns=n128:qual=slow"
 
 private const val LOCAL_OUTPUT_DIR = "Output"
 private const val LOCAL_WEIGHTS_DIR = "\$HOME/.cache/ffmpeg-commands"
 private const val DOCKER_IMAGE = "linuxserver/ffmpeg"
+private const val MKVMERGE = "mkvmerge"
+private const val MKVMERGE_DOCKER_IMAGE = "jlesage/mkvtoolnix"
 private const val DOCKER_CONFIG_DIR = "/config"
 private const val DOCKER_OUTPUT_DIR = "$DOCKER_CONFIG_DIR/$LOCAL_OUTPUT_DIR"
 private const val DOCKER_WEIGHTS_DIR = "/weights"
@@ -60,6 +65,8 @@ private const val COULD_NOT_RUN_FFMPEG = "$ERROR_PREFIX Could not run ffmpeg:"
 private const val COULD_NOT_INSTALL_WEIGHTS = "$ERROR_PREFIX Could not install nnedi weights:"
 private const val TRIM_START_ON_COPIED_VIDEO =
     "$ERROR_PREFIX -trimStart cannot be used on AV1 sources, a copied video stream can only be cut at a keyframe"
+private const val TRIM_START_WITH_TWO_PASS = "$ERROR_PREFIX -trimStart cannot be used with -twoPassTranscode yet"
+private const val TWO_PASS_WITHOUT_MATROSKA = "$ERROR_PREFIX -twoPassTranscode only supports Matroska sources"
 private const val MISSING_AUDIO_LANGUAGE =
     "$ERROR_PREFIX Missing language for audio stream. Use -setAudioLanguages parameter to specify languages for audio streams without language tags."
 private const val MISSING_SUBTITLE_LANGUAGE = "$ERROR_PREFIX Missing language for subtitle stream"
@@ -89,6 +96,8 @@ class CommandCreator {
         TRIM_START
     )
 
+    private val ffmpegTracks = FfmpegTrackArguments()
+    private val mkvmergeArguments = MkvmergeArguments()
     private val ffmpegWrapper: FfmpegWrapper
     private val weightsInstaller: WeightsInstaller
 
@@ -199,7 +208,6 @@ class CommandCreator {
 
         val videoFormat = videoFormat(streams, deinterlace, weightsDir)
         val selection = TrackSelection(streams, takeLanguages, parsedArgs)
-        val ffmpegTracks = FfmpegTrackArguments()
         val copyVideo = videoFormat == COPY
         val trimStart = parsedArgs[TRIM_START]
 
@@ -223,42 +231,26 @@ class CommandCreator {
         val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
 
         if (useTwoPass) {
-            val videoOutputName = outputName(filename.substringAfterLast("/"))
-            val videoOutputFile = "$outputDir/${videoOutputName.substringBeforeLast(".")}_video.mkv"
-            val finalOutputFile = "$outputDir/$videoOutputName"
-
-            val videoCommand = (commandPrefix + "-n $seek-i $inputFile " +
-                "$SOURCE_VIDEO_MAPPING $videoFormat " +
-                "$QUALITY_OPTIONS -f matroska " +
-                "$videoOutputFile").replace("  ", " ").trim()
-
-            val subtitleInputIndex = if (separateSubtitles) {
-                2
-            } else {
-                0
+            if (trimStart != null) {
+                return TRIM_START_WITH_TWO_PASS
             }
 
-            val audioCommand = (commandPrefix + "-n $seek-i $inputFile -i $videoOutputFile $subtitleInput" +
-                "$ENCODED_VIDEO_MAPPING " +
-                "${ffmpegTracks.audio(selection.audio())} " +
-                "${ffmpegTracks.subtitles(selection.subtitles(), subtitleInputIndex)} " +
-                attachmentMapping(streams) +
-                "$VERSION_TAG $discardBeforeCut$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
-                "$finalOutputFile").replace("  ", " ").trim()
-
-            val finalVideoCommand = if (useDocker) {
-                dockerWrap(videoCommand, useUnstarted, deinterlace)
-            } else {
-                videoCommand
+            // mkvmerge addresses source tracks by ffmpeg's stream index, which only holds for Matroska sources.
+            if (ffmpegResult.none { it.trim().startsWith(MATROSKA_INPUT) }) {
+                return TWO_PASS_WITHOUT_MATROSKA
             }
 
-            val finalAudioCommand = if (useDocker) {
-                dockerWrap(audioCommand, useUnstarted, false)
-            } else {
-                audioCommand
-            }
-
-            return "$finalVideoCommand\n$finalAudioCommand"
+            return twoPassCommands(
+                commandPrefix + "-n -i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat ",
+                selection,
+                inputFile,
+                outputDir,
+                outputName(filename.substringAfterLast("/")),
+                interleaveDelta,
+                useDocker,
+                useUnstarted,
+                deinterlace
+            )
         }
 
         val qualityOptions = if (copyVideo) {
@@ -290,6 +282,58 @@ class CommandCreator {
         } else {
             baseCommand
         }
+    }
+
+    // Pass 1 encodes the video and the AC3 tracks, mkvmerge then adds everything copied from the source. An ffmpeg mux
+    // of the source stalls on sparse subtitle tracks: it holds back the video until the next subtitle line.
+    private fun twoPassCommands(
+        videoPart: String,
+        selection: TrackSelection,
+        inputFile: String,
+        outputDir: String,
+        outputName: String,
+        interleaveDelta: Long,
+        useDocker: Boolean,
+        useUnstarted: Boolean,
+        deinterlace: Boolean
+    ): String {
+        val intermediateFile = "$outputDir/${outputName.substringBeforeLast(".")}_intermediate.mkv"
+        val encodedAudio = selection.audio().filter { it.action != COPY }
+
+        val encodeCommand = (videoPart +
+            "${ffmpegTracks.audio(encodedAudio)} " +
+            "$QUALITY_OPTIONS $VERSION_TAG $NO_CHAPTERS_OR_GLOBAL_METADATA " +
+            "$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
+            intermediateFile).replace("  ", " ").trim()
+
+        val mkvmergeOptions = mkvmergeArguments.render(
+            selection.audio(),
+            selection.subtitles(),
+            intermediateFile,
+            inputFile,
+            "$outputDir/$outputName"
+        )
+
+        val finalEncodeCommand = if (useDocker) {
+            dockerWrap(encodeCommand, useUnstarted, deinterlace)
+        } else {
+            encodeCommand
+        }
+
+        val muxCommand = if (useDocker) {
+            mkvmergeDockerWrap(mkvmergeOptions, useUnstarted)
+        } else {
+            "$MKVMERGE $mkvmergeOptions"
+        }
+
+        // mkvmerge has no -n and overwrites silently; for an unstarted container the check would run too early.
+        val finalMuxCommand = if (useUnstarted) {
+            muxCommand
+        } else {
+            "[ ! -e $LOCAL_OUTPUT_DIR/$outputName ] && $muxCommand"
+        }
+
+        return "$finalEncodeCommand\n$finalMuxCommand"
     }
 
     private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"
@@ -395,6 +439,16 @@ class CommandCreator {
         }
 
         return "docker $dockerCommand --rm -it -v $DOCKER_CONFIG_VOLUME ${weightsVolume}$DOCKER_IMAGE $command"
+    }
+
+    private fun mkvmergeDockerWrap(arguments: String, unstarted: Boolean): String {
+        val dockerCommand = if (unstarted) {
+            "create"
+        } else {
+            "run"
+        }
+
+        return "docker $dockerCommand --rm -it -v $DOCKER_CONFIG_VOLUME --entrypoint $MKVMERGE $MKVMERGE_DOCKER_IMAGE $arguments"
     }
 
     private fun languageList(parameters: Map<String, String>): List<String> = defaultLanguages.plus(

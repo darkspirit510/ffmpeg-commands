@@ -48,22 +48,6 @@ class TrimStartTest {
     }
 
     @Test
-    fun `reads subtitles through their own input in two-pass mux command only`() {
-        val command = CommandCreator(FakeWrapper(sourceWithSubtitle))
-            .doAction(arrayOf("somefile.mkv", "-twoPassTranscode", "-trimStart=28"))
-
-        assertEquals(
-            "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
-                "\n" +
-                "ffmpeg -n -ss 28 -i somefile.mkv -i Output/somefile_video.mkv -ss 28 -i somefile.mkv " +
-                "-map 1:v:0 -c:v:0 copy -map 0:a:0 -c:a:0 copy -map 2:s:0 -c:s:0 copy " +
-                "-metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
-                "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
-            command
-        )
-    }
-
-    @Test
     fun `adds no subtitle input when subtitles are dropped`() {
         val command = CommandCreator(FakeWrapper(sourceWithSubtitle))
             .doAction(arrayOf("somefile.mkv", "-dropSubtitles", "-trimStart=28"))
@@ -84,21 +68,6 @@ class TrimStartTest {
         val command = CommandCreator(FakeWrapper(source)).doAction(arrayOf("somefile.mkv", "-trimStart=28.5"))
 
         assertEquals(true, command.startsWith("ffmpeg -n -ss 28.5 -i somefile.mkv "), command)
-    }
-
-    @Test
-    fun `seeks source in both two-pass commands but never the trimmed video`() {
-        val command = CommandCreator(FakeWrapper(source))
-            .doAction(arrayOf("somefile.mkv", "-twoPassTranscode", "-trimStart=28"))
-
-        assertEquals(
-            "ffmpeg -n -ss 28 -i somefile.mkv $videoEncoding -crf 17 -preset 2 -f matroska Output/somefile_video.mkv" +
-                "\n" +
-                "ffmpeg -n -ss 28 -i somefile.mkv -i Output/somefile_video.mkv -map 1:v:0 -c:v:0 copy " +
-                "-map 0:a:0 -c:a:0 copy -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
-                "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
-            command
-        )
     }
 
     @Test
