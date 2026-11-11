@@ -17,9 +17,10 @@ class ProbeSizeTest {
 
     @Test
     fun `probes further when a subtitle was not found in the default probe window`() {
-        val command = CommandCreator(FakeWrapper(sourceWithLateSubtitle)).doAction(arrayOf("somefile.mkv"))
+        val command = CommandCreator(FakeWrapper(sourceWithLateSubtitle), FakeCueReader(null)).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: no subtitle cues in the source\n" +
             "ffmpeg -n -analyzeduration 600M -probesize 5G -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-map 0:s:0 -c:s:0 copy -crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -29,10 +30,11 @@ class ProbeSizeTest {
 
     @Test
     fun `probes further on every seeking input of a trimmed file`() {
-        val command = CommandCreator(FakeWrapper(sourceWithLateSubtitle))
+        val command = CommandCreator(FakeWrapper(sourceWithLateSubtitle), FakeCueReader(null))
             .doAction(arrayOf("somefile.mkv", "-trimStart=28"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: no subtitle cues in the source\n" +
             "ffmpeg -n -analyzeduration 600M -probesize 5G -ss 28 -i somefile.mkv " +
                 "-analyzeduration 600M -probesize 5G -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-map 1:s:0 -c:s:0 copy -crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +

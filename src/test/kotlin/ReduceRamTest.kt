@@ -47,7 +47,7 @@ class ReduceRamTest {
 
         assertEquals(
             true,
-            command.startsWith("ffmpeg -n -threads 4 -ss 28 -i somefile.mkv -ss 28 -i somefile.mkv $lowRamEncoding "),
+            command.lines().last().startsWith("ffmpeg -n -threads 4 -ss 28 -i somefile.mkv -ss 28 -i somefile.mkv $lowRamEncoding "),
             command
         )
     }

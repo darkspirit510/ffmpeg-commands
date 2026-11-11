@@ -21,7 +21,7 @@ class MkvmergeArgumentsTest {
 
         assertEquals(
             "-o out.mkv intermediate.mkv -D -a 1,3 -s 7,5 movie.mkv --track-order 0:0,1:1,0:1,1:3,1:7,1:5",
-            MkvmergeArguments().render(audio, subtitles, "intermediate.mkv", "movie.mkv", "out.mkv")
+            MkvmergeArguments().render(audio, subtitles, "intermediate.mkv", null, "movie.mkv", "out.mkv")
         )
     }
 
@@ -31,7 +31,7 @@ class MkvmergeArgumentsTest {
 
         assertEquals(
             "-o out.mkv intermediate.mkv -D -a 2,1 -S movie.mkv --track-order 0:0,1:2,0:1,1:1,0:2",
-            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
+            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", null, "movie.mkv", "out.mkv")
         )
     }
 
@@ -41,7 +41,7 @@ class MkvmergeArgumentsTest {
 
         assertEquals(
             "-o out.mkv intermediate.mkv -D -a 1 --language 1:deu -S movie.mkv --track-order 0:0,1:1,0:1",
-            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
+            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", null, "movie.mkv", "out.mkv")
         )
     }
 
@@ -55,7 +55,7 @@ class MkvmergeArgumentsTest {
         assertEquals(
             "-o out.mkv intermediate.mkv -D -a 1 --language 1:deu --track-name 1:\"Surround 5.1 (DTS-HD MA)\" " +
                 "-S movie.mkv --track-order 0:0,1:1,0:1",
-            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
+            MkvmergeArguments().render(audio, emptyList(), "intermediate.mkv", null, "movie.mkv", "out.mkv")
         )
     }
 
@@ -63,7 +63,27 @@ class MkvmergeArgumentsTest {
     fun `takes no audio from source without copied audio`() {
         assertEquals(
             "-o out.mkv intermediate.mkv -D -A -S movie.mkv --track-order 0:0",
-            MkvmergeArguments().render(emptyList(), emptyList(), "intermediate.mkv", "movie.mkv", "out.mkv")
+            MkvmergeArguments().render(emptyList(), emptyList(), "intermediate.mkv", null, "movie.mkv", "out.mkv")
+        )
+    }
+
+    @Test
+    fun `takes the video from the source and numbers the ac3 tracks of an audio-only intermediate from 0`() {
+        val audio = listOf(copied(2), copied(2).copy(action = AC3), copied(1), copied(1).copy(action = AC3))
+
+        assertEquals(
+            "-o out.mkv intermediate.mkv -d 0 -a 2,1 -s 5 movie.mkv --track-order 1:0,1:2,0:0,1:1,0:1,1:5",
+            MkvmergeArguments().render(audio, listOf(copied(5)), "intermediate.mkv", 0, "movie.mkv", "out.mkv")
+        )
+    }
+
+    @Test
+    fun `muxes the source alone without an intermediate file`() {
+        val audio = listOf(copied(2).copy(title = "Surround 5.1 (AC3)"), copied(1))
+
+        assertEquals(
+            "-o out.mkv -d 0 -a 2,1 --track-name 2:\"Surround 5.1 (AC3)\" -s 5 movie.mkv --track-order 0:0,0:2,0:1,0:5",
+            MkvmergeArguments().render(audio, listOf(copied(5)), null, 0, "movie.mkv", "out.mkv")
         )
     }
 }

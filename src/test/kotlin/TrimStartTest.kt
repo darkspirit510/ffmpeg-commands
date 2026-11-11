@@ -40,6 +40,7 @@ class TrimStartTest {
             .doAction(arrayOf("somefile.mkv", "-trimStart=28"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -ss 28 -i somefile.mkv -ss 28 -i somefile.mkv $videoEncoding -map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
                 "-map 1:s:0 -c:s:0 copy -crf 17 -preset 2 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=$TOOL_VERSION " +
                 "-copypriorss 0 -max_muxing_queue_size 9999 -max_interleave_delta 0 Output/somefile.mkv",
@@ -59,7 +60,7 @@ class TrimStartTest {
     fun `keeps subtitles on the source input without trimStart`() {
         val command = CommandCreator(FakeWrapper(sourceWithSubtitle)).doAction(arrayOf("somefile.mkv"))
 
-        assertEquals(true, command.startsWith("ffmpeg -n -i somefile.mkv -map 0:v:0 "), command)
+        assertEquals(true, command.lines().last().startsWith("ffmpeg -n -i somefile.mkv -map 0:v:0 "), command)
         assertEquals(true, command.contains("-map 0:s:0 -c:s:0 copy"), command)
     }
 

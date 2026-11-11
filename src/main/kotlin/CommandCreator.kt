@@ -24,6 +24,7 @@ const val TWO_PASS_TRANSCODE = "twoPassTranscode"
 const val DEINTERLACE = "deinterlace"
 const val TRIM_START = "trimStart"
 const val REDUCE_RAM = "reduceRAM"
+const val TWO_PASS_THRESHOLD = "twoPassThreshold"
 
 private const val FILE_DOES_NOT_EXIST = "Error opening input files: No such file or directory"
 // ffmpeg stops probing once all streams are resolved and buffers what it read until the packets are processed.
@@ -50,6 +51,8 @@ private const val MUXING_QUEUE_OPTION = "-max_muxing_queue_size 9999"
 // A bare -map_metadata -1 would also drop the stream tags, i.e. the language and title of the AC3 encodes.
 private const val NO_CHAPTERS_OR_GLOBAL_METADATA = "-map_chapters -1 -map_metadata:g -1"
 private const val MATROSKA_INPUT = "Input #0, matroska"
+// The server container has 31 GB; SVT-AV1 and the decoder need room next to the muxer.
+private const val DEFAULT_TWO_PASS_THRESHOLD_GB = "8"
 private const val NNEDI_OPTIONS = "field=af:deint=interlaced:nns=n128:qual=slow"
 
 private const val LOCAL_OUTPUT_DIR = "Output"
@@ -84,13 +87,18 @@ private const val INTERLEAVE_DELTA_EMPTY = "maxInterleaveDelta cannot be empty"
 private const val INTERLEAVE_DELTA_NEGATIVE = "maxInterleaveDelta must be non-negative"
 private const val INTERLEAVE_DELTA_NOT_INTEGER = "maxInterleaveDelta must be an integer"
 private const val TRIM_START_NOT_POSITIVE = "trimStart must be a positive number of seconds"
+private const val TWO_PASS_THRESHOLD_NOT_POSITIVE = "twoPassThreshold must be a positive number of GB"
+private const val SINGLE_PASS_NOT_CHECKED = "# Single pass, subtitle gaps not checked:"
+private const val TWO_PASSES_DETECTED = "# Two passes:"
+private const val TRIM_START_WITH_DETECTED_TWO_PASS = "$ERROR_PREFIX -trimStart cannot be used with two passes yet, but"
+private const val TRIM_START_WITH_DETECTED_TWO_PASS_HINT = "Use -dropSubtitles, see issue #27"
 
 class CommandCreator {
 
     private val knownChannelTypes = setOf("Video", "Audio", "Subtitle", "Attachment")
     private val defaultLanguages = listOf("deu", "ger", "eng")
     private val unsafeShellCharacters = Regex("""[^\p{L}\p{N}_./,:@%+=-]""")
-    private val positiveSeconds = Regex("""\d+(\.\d+)?""")
+    private val positiveNumber = Regex("""\d+(\.\d+)?""")
     private val unprobedSubtitle = Regex("""Could not find codec parameters for stream \d+ \(Subtitle:""")
     private val knownParameters = listOf(
         ALIAS,
@@ -104,13 +112,15 @@ class CommandCreator {
         TWO_PASS_TRANSCODE,
         DEINTERLACE,
         TRIM_START,
-        REDUCE_RAM
+        REDUCE_RAM,
+        TWO_PASS_THRESHOLD
     )
 
     private val ffmpegTracks = FfmpegTrackArguments()
     private val mkvmergeArguments = MkvmergeArguments()
     private val ffmpegWrapper: FfmpegWrapper
     private val weightsInstaller: WeightsInstaller
+    private val subtitleGapCheck: SubtitleGapCheck
 
     constructor() : this(FfmpegWrapperImpl())
 
@@ -119,9 +129,21 @@ class CommandCreator {
     constructor(
         wrapper: FfmpegWrapper,
         installer: WeightsInstaller
+    ) : this(wrapper, installer, EbmlCueReader())
+
+    constructor(
+        wrapper: FfmpegWrapper,
+        cueReader: CueReader
+    ) : this(wrapper, WeightsInstallerImpl(), cueReader)
+
+    constructor(
+        wrapper: FfmpegWrapper,
+        installer: WeightsInstaller,
+        cueReader: CueReader
     ) {
         this.ffmpegWrapper = wrapper
         this.weightsInstaller = installer
+        this.subtitleGapCheck = SubtitleGapCheck(cueReader)
     }
 
     fun doAction(args: Array<String>): String {
@@ -261,31 +283,102 @@ class CommandCreator {
             return "$ERROR_PREFIX ${e.message}"
         }
 
-        // A copied video stream needs no separate first pass, and no encoder consumes -crf/-preset.
-        val useTwoPass = parsedArgs.contains(TWO_PASS_TRANSCODE) && !copyVideo
+        // mkvmerge addresses source tracks by ffmpeg's stream index, which only holds for Matroska sources.
+        val matroska = ffmpegResult.any { it.trim().startsWith(MATROSKA_INPUT) }
+        val outputName = outputName(filename.substringAfterLast("/"))
+        val videoStream = streams.getValue("Video").first().index
+
+        // With nothing to encode, mkvmerge alone remuxes the source; it copes with sparse subtitle tracks.
+        if (copyVideo && matroska && audio.all { it.action == COPY }) {
+            return muxCommand(
+                mkvmergeArguments.render(audio, selection.subtitles(), null, videoStream, inputFile, "$outputDir/$outputName"),
+                outputName,
+                useDocker,
+                useUnstarted
+            )
+        }
+
+        val notes = mutableListOf<String>()
+        val useTwoPass = if (parsedArgs.contains(TWO_PASS_TRANSCODE)) {
+            // Without Matroska, a copied video keeps the single ffmpeg command; an encoded one is rejected below.
+            !copyVideo || matroska
+        } else {
+            val threshold = parsedArgs[TWO_PASS_THRESHOLD] ?: DEFAULT_TWO_PASS_THRESHOLD_GB
+
+            when (val outcome = subtitleGapCheck.check(
+                args[0],
+                ffmpegResult,
+                matroska,
+                trimStart?.toDouble() ?: 0.0,
+                videoStream,
+                audio,
+                selection.subtitles()
+            )) {
+                is SubtitleGapCheck.Outcome.NothingToCheck -> false
+
+                is SubtitleGapCheck.Outcome.NotChecked -> {
+                    notes.add("$SINGLE_PASS_NOT_CHECKED ${outcome.reason}")
+                    false
+                }
+
+                is SubtitleGapCheck.Outcome.Estimated -> if (outcome.bytes > threshold.toDouble() * BYTES_PER_GB) {
+                    if (trimStart != null) {
+                        return "$TRIM_START_WITH_DETECTED_TWO_PASS ${outcome.describe(threshold)}. " +
+                            TRIM_START_WITH_DETECTED_TWO_PASS_HINT
+                    }
+
+                    notes.add("$TWO_PASSES_DETECTED ${outcome.describe(threshold)}")
+                    true
+                } else {
+                    false
+                }
+            }
+        }
 
         if (useTwoPass) {
             if (trimStart != null) {
                 return TRIM_START_WITH_TWO_PASS
             }
 
-            // mkvmerge addresses source tracks by ffmpeg's stream index, which only holds for Matroska sources.
-            if (ffmpegResult.none { it.trim().startsWith(MATROSKA_INPUT) }) {
+            if (!matroska) {
                 return TWO_PASS_WITHOUT_MATROSKA
             }
 
-            return twoPassCommands(
-                commandPrefix + "-n $probe$decoderThreads-i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat ",
+            // A copied video goes straight from the source into mkvmerge, so the ffmpeg pass encodes only AC3.
+            val inputPart = if (copyVideo) {
+                commandPrefix + "-n $probe-i $inputFile "
+            } else {
+                commandPrefix + "-n $probe$decoderThreads-i $inputFile $SOURCE_VIDEO_MAPPING $videoFormat "
+            }
+
+            val videoOptions = if (copyVideo) {
+                ""
+            } else {
+                "$QUALITY_OPTIONS $VERSION_TAG "
+            }
+
+            val sourceVideo = if (copyVideo) {
+                videoStream
+            } else {
+                null
+            }
+
+            val commands = twoPassCommands(
+                inputPart,
+                videoOptions,
+                sourceVideo,
                 audio,
                 selection.subtitles(),
                 inputFile,
                 outputDir,
-                outputName(filename.substringAfterLast("/")),
+                outputName,
                 interleaveDelta,
                 useDocker,
                 useUnstarted,
                 deinterlace
             )
+
+            return (notes + commands).joinToString("\n")
         }
 
         val qualityOptions = if (copyVideo) {
@@ -308,21 +401,26 @@ class CommandCreator {
             qualityOptions +
             discardBeforeCut +
             "$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
-            "$outputDir/${outputName(filename.substringAfterLast("/"))}")
+            "$outputDir/$outputName")
             .replace("  ", " ")
             .trim()
 
-        return if (useDocker) {
+        val command = if (useDocker) {
             dockerWrap(baseCommand, useUnstarted, deinterlace)
         } else {
             baseCommand
         }
+
+        return (notes + command).joinToString("\n")
     }
 
-    // Pass 1 encodes the video and the AC3 tracks, mkvmerge then adds everything copied from the source. An ffmpeg mux
-    // of the source stalls on sparse subtitle tracks: it holds back the video until the next subtitle line.
+    // Pass 1 encodes the video (unless mkvmerge copies sourceVideo) and the AC3 tracks, mkvmerge then adds everything
+    // copied from the source. An ffmpeg mux of the source stalls on sparse subtitle tracks: it holds back the video
+    // until the next subtitle line.
     private fun twoPassCommands(
-        videoPart: String,
+        inputPart: String,
+        videoOptions: String,
+        sourceVideo: Int?,
         audio: List<Mapping>,
         subtitles: List<Mapping>,
         inputFile: String,
@@ -336,9 +434,9 @@ class CommandCreator {
         val intermediateFile = "$outputDir/${outputName.substringBeforeLast(".")}_intermediate.mkv"
         val encodedAudio = audio.filter { it.action != COPY }
 
-        val encodeCommand = (videoPart +
+        val encodeCommand = (inputPart +
             "${ffmpegTracks.audio(encodedAudio)} " +
-            "$QUALITY_OPTIONS $VERSION_TAG $NO_CHAPTERS_OR_GLOBAL_METADATA " +
+            "$videoOptions$NO_CHAPTERS_OR_GLOBAL_METADATA " +
             "$MUXING_QUEUE_OPTION -max_interleave_delta $interleaveDelta " +
             intermediateFile).replace("  ", " ").trim()
 
@@ -346,6 +444,7 @@ class CommandCreator {
             audio,
             subtitles,
             intermediateFile,
+            sourceVideo,
             inputFile,
             "$outputDir/$outputName"
         )
@@ -356,6 +455,10 @@ class CommandCreator {
             encodeCommand
         }
 
+        return "$finalEncodeCommand\n${muxCommand(mkvmergeOptions, outputName, useDocker, useUnstarted)}"
+    }
+
+    private fun muxCommand(mkvmergeOptions: String, outputName: String, useDocker: Boolean, useUnstarted: Boolean): String {
         val muxCommand = if (useDocker) {
             mkvmergeDockerWrap(mkvmergeOptions, useUnstarted)
         } else {
@@ -363,13 +466,11 @@ class CommandCreator {
         }
 
         // mkvmerge has no -n and overwrites silently; for an unstarted container the check would run too early.
-        val finalMuxCommand = if (useUnstarted) {
+        return if (useUnstarted) {
             muxCommand
         } else {
             "[ ! -e $LOCAL_OUTPUT_DIR/$outputName ] && $muxCommand"
         }
-
-        return "$finalEncodeCommand\n$finalMuxCommand"
     }
 
     private fun command(parsedArgs: Map<String, String>): String = parsedArgs[ALIAS] ?: "ffmpeg"
@@ -388,7 +489,8 @@ class CommandCreator {
             .filter { it.value != null } as Map<String, String>
 
         validateMaxInterleaveDelta(parsed)
-        validateTrimStart(parsed)
+        validatePositiveNumber(parsed, TRIM_START, TRIM_START_NOT_POSITIVE)
+        validatePositiveNumber(parsed, TWO_PASS_THRESHOLD, TWO_PASS_THRESHOLD_NOT_POSITIVE)
 
         return parsed
     }
@@ -413,11 +515,11 @@ class CommandCreator {
         }
     }
 
-    private fun validateTrimStart(parsedArgs: Map<String, String>) {
-        val value = parsedArgs[TRIM_START]
+    private fun validatePositiveNumber(parsedArgs: Map<String, String>, parameter: String, message: String) {
+        val value = parsedArgs[parameter]
 
-        if (value != null && (!positiveSeconds.matches(value) || value.toDouble() <= 0)) {
-            throw IllegalArgumentException(TRIM_START_NOT_POSITIVE)
+        if (value != null && (!positiveNumber.matches(value) || value.toDouble() <= 0)) {
+            throw IllegalArgumentException(message)
         }
     }
 

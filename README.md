@@ -27,7 +27,8 @@ java -jar ffmpeg-commands.jar filename.mkv [options]
 | `ignoreMissingSubtitleLanguage` | Ignore streams with missing subtitle language                                             |
 | `setAudioLanguages`             | Comma-separated list of languages to assign to audio streams without language information |
 | `maxInterleaveDelta`            | Override max interleaving delta in milliseconds (default: 0)                              |
-| `twoPassTranscode`              | Encode video and AC3 with ffmpeg, then mux with the source tracks using mkvmerge          |
+| `twoPassTranscode`              | Always use two passes (ffmpeg, then mkvmerge), see [Two passes](#two-passes)              |
+| `twoPassThreshold`              | RAM estimate in GB above which two passes are used (default: 8, e.g. `-twoPassThreshold=4.5`) |
 | `deinterlace`                   | Deinterlace with ffmpeg's `nnedi` filter at double frame rate (e.g. 25i → 50p)            |
 | `trimStart`                     | Cut the given number of seconds from the start of all streams (e.g. `-trimStart=28.5`)    |
 | `reduceRAM`                     | Encode with less parallelism to lower the memory use; slower, same output                 |
@@ -74,28 +75,12 @@ most 5.1 channels.
 Note: The maxInterleaveDelta parameter controls how ffmpeg interleaves audio and video packets. The default value of 0
 disables interleaving delta, which prevents "starting new cluster" spam but may cause muxer deadlocks with many audio
 tracks. If you experience muxer deadlocks (ffmpeg dies without notice and resulting video can't be played), you may need
-to set a positive value or use the twoPassTranscode parameter.
+to set a positive value or use the twoPassTranscode parameter (see [Two passes](#two-passes)).
 See [this link](https://www.reddit.com/r/ffmpeg/comments/efddfs/starting_new_cluster_due_to_timestamp/) for more
 information.
 
-Note: The twoPassTranscode parameter generates two commands. Run them one after the other:
-
-1. ffmpeg encodes the video and the AC3 tracks into `Output/movie_intermediate.mkv`, without chapters or global tags.
-2. mkvmerge combines that file with the copied audio tracks, subtitles, chapters, attachments and global tags of the
-   source into `Output/movie.mkv`. The track order is the same as with a single command. The AC3 tracks get their
-   [audio title](#audio-titles) in step 1, the copied audio tracks through mkvmerge's `--track-name`.
-
-This avoids ffmpeg's final mux, which breaks on sparse subtitle tracks (e.g. a forced track with a few lines and gaps of
-20 minutes): ffmpeg holds back the video until the next subtitle line and either writes the file badly interleaved or
-buffers it in RAM until it runs out of memory. With `-docker`, mkvmerge runs in `jlesage/mkvtoolnix`; otherwise the
-host's `mkvmerge` is used (`-alias` only changes the ffmpeg command). mkvmerge has no `-n` and overwrites silently, so
-the mux command starts with `[ ! -e Output/movie.mkv ] &&` and does nothing when the output exists; with `-unstarted`
-the guard is left out, since it would run when the container is created. The intermediate file is not deleted.
-mkvmerge selects source tracks by ffmpeg's stream index, so only Matroska sources are supported. `-trimStart` cannot be
-combined with `-twoPassTranscode` yet. When the video is copied (AV1 source), the parameter is ignored.
-
 Note: The deinterlace parameter adds `-vf nnedi=...:field=af:deint=interlaced:nns=n128:qual=slow`, doubles the keyframe
-interval to 480 and re-encodes AV1 sources instead of copying them. With `-twoPassTranscode` the filter is applied in
+interval to 480 and re-encodes AV1 sources instead of copying them. With two passes the filter is applied in
 the video pass only. The `nnedi` filter needs a weights file: the tool extracts it to `~/.cache/ffmpeg-commands/` on
 first use (and replaces a copy with the wrong size). In docker mode, that directory is mounted into the container as `/weights`.
 The bundled `nnedi3_weights.bin` comes from [vapoursynth-nnedi3](https://github.com/dubhater/vapoursynth-nnedi3) and
@@ -110,7 +95,7 @@ input of the same file: on a real file, subtitles sharing an input with audio ma
 Note: The reduceRAM parameter adds `:lp=3` to `-svtav1-params` and `-threads 4` before the video input. SVT-AV1 picks its
 level of parallelism from the host's CPU count (Docker CPU limits don't change it), up to level 6, which in CRF mode
 buffers seven extra mini-GOPs of frames; levels 1 to 3 buffer none. The encode gets slower. The CRF output and the
-version tag stay the same. With `-twoPassTranscode` only the ffmpeg pass changes. AV1 sources are rejected, since their
+version tag stay the same. With two passes only the ffmpeg pass changes. AV1 sources are rejected, since their
 video is copied and not encoded.
 
 Note: A PGS subtitle track whose first subtitle starts late makes ffmpeg warn `Could not find codec parameters ...
@@ -118,6 +103,56 @@ unspecified size`. The warning is harmless, as copied subtitles stay intact. Whe
 the commands add `-analyzeduration 600M -probesize 5G` to every ffmpeg source input, which silences it for a first subtitle
 within 10 minutes and 5 GB. ffmpeg stops probing once all streams are resolved and keeps what it read in RAM until those
 packets are processed, so memory use peaks at the start of a run, by up to 5 GB per source input.
+
+## Two passes
+
+By default the tool prints a single ffmpeg command. That final ffmpeg mux breaks on sparse subtitle tracks (e.g. a
+forced track with a few lines and gaps of 20 minutes): ffmpeg's scheduler always feeds the output stream that is
+furthest behind, so it holds back everything else until the next subtitle line. With `-max_interleave_delta 0` the
+muxer buffers all of that in RAM, up to an out-of-memory kill; with a positive value it writes the file badly
+interleaved.
+
+So the tool estimates that RAM and switches to two commands when the estimate exceeds 8 GB (`-twoPassThreshold`):
+
+1. ffmpeg encodes the video and the AC3 tracks into `Output/movie_intermediate.mkv`, without chapters or global tags.
+2. mkvmerge combines that file with the copied audio tracks, subtitles, chapters, attachments and global tags of the
+   source into `Output/movie.mkv`. The track order is the same as with a single command. The AC3 tracks get their
+   [audio title](#audio-titles) in step 1, the copied audio tracks through mkvmerge's `--track-name`.
+
+Run them one after the other. The reason is printed above them as a shell comment:
+
+```
+# Two passes: subtitle stream #0:2 goes 3044 s without a line, a single-pass mux would buffer about 9.0 GB (threshold 8 GB)
+```
+
+The estimate is the longest gap of any selected subtitle track (before the first line, between lines, and after the
+last line until the end of the file; with `-trimStart` from the cut) times the bitrate of everything else the muxer
+holds back: the `BPS` tags of the copied audio tracks and of the source video, plus 640 kb/s per AC3 encode. The source
+video bitrate overestimates the encoded video on purpose. 1 GB is 10⁹ bytes. The subtitle lines are found in the Cues
+(the index) of the Matroska source, which the tool reads itself without reading the whole file; mkvmerge and ffmpeg
+write a cue for every subtitle line. A selected subtitle track without any cue counts as one gap over the whole file.
+
+The check is skipped with a single command and a `# Single pass, subtitle gaps not checked: ...` comment when the source
+is not Matroska, has no subtitle cues, reports no duration, or lacks a `BPS` tag on a buffered stream. With
+`-dropSubtitles` there is nothing to check. `-twoPassTranscode` forces two commands without a check and wins over
+`-twoPassThreshold`; a high threshold keeps a single command.
+
+With `-docker`, mkvmerge runs in `jlesage/mkvtoolnix`; otherwise the host's `mkvmerge` is used (`-alias` only changes
+the ffmpeg command). mkvmerge has no `-n` and overwrites silently, so the mux command starts with
+`[ ! -e Output/movie.mkv ] &&` and does nothing when the output exists; with `-unstarted` the guard is left out, since
+it would run when the container is created. The intermediate file is not deleted. mkvmerge selects source tracks by
+ffmpeg's stream index, so `-twoPassTranscode` only supports Matroska sources. `-trimStart` cannot be combined with two
+passes yet (see issue #27): when the check asks for two passes, the tool stops with an error; drop the subtitles with
+`-dropSubtitles` to trim anyway.
+
+When the video is copied (AV1 source from Matroska):
+
+- With no AC3 encode needed, a single mkvmerge command remuxes the source, with audio titles and languages set through
+  `--track-name` and `--language`. No ffmpeg command and no check.
+- With an AC3 encode, the single ffmpeg command stays unless two passes are detected or forced; then ffmpeg encodes
+  only the AC3 tracks into `Output/movie_intermediate.mkv` and mkvmerge takes the video from the source.
+
+AV1 sources that are not Matroska keep the single ffmpeg command, `-twoPassTranscode` is ignored for them.
 
 ## Version tag
 
@@ -128,8 +163,8 @@ into the video stream of the final file:
 -metadata:s:v:0 FFMPEG_COMMANDS_VERSION=1.0
 ```
 
-With `-twoPassTranscode` the tag is set in the first (ffmpeg) command, and mkvmerge keeps it in the final file. When the
-video is copied (AV1 source), the tool adds no tag, since nothing was encoded. ffmpeg still copies an existing tag from
+With two passes the tag is set in the first (ffmpeg) command, and mkvmerge keeps it in the final file. When the
+video is copied (AV1 source), the tool adds no tag, since nothing was encoded. ffmpeg and mkvmerge still copy an existing tag from
 the source, so a re-muxed file keeps the version it was encoded with.
 
 `mediainfo --Output=JSON` shows the tag in the video track's `extra` object:

@@ -1,17 +1,34 @@
-// Renders the final mux of -twoPassTranscode as mkvmerge arguments. File 0 is the intermediate file with the encoded
-// video (track 0) followed by the AC3 encodes in selection order; file 1 is the source, from which the copied audio,
-// the subtitles, chapters, attachments and global tags are taken. Source track IDs are the ffmpeg stream indexes.
-// Copied audio tracks get their title here; the AC3 encodes already carry theirs from pass 1.
+// Renders the final mux as mkvmerge arguments. The optional intermediate file (file 0) holds what ffmpeg encoded: the
+// video as track 0 followed by the AC3 encodes in selection order, or, when the video is copied from the source, only
+// the AC3 encodes. The source (the last file) supplies the copied audio, the subtitles, chapters, attachments and global
+// tags, and the video when sourceVideo is set. Source track IDs are the ffmpeg stream indexes.
+// Copied tracks get their title here; the AC3 encodes already carry theirs from the ffmpeg pass.
 class MkvmergeArguments {
 
     fun render(
         audio: List<Mapping>,
         subtitles: List<Mapping>,
-        intermediateFile: String,
+        intermediateFile: String?,
+        sourceVideo: Int?,
         sourceFile: String,
         outputFile: String
     ): String {
+        require(intermediateFile != null || (sourceVideo != null && audio.all { it.action == COPY })) {
+            "Without an intermediate file, every track has to come from the source"
+        }
+
         val copiedAudio = audio.filter { it.action == COPY }
+        val sourceFileIndex = if (intermediateFile == null) {
+            0
+        } else {
+            1
+        }
+
+        val videoOption = if (sourceVideo == null) {
+            "-D"
+        } else {
+            "-d $sourceVideo"
+        }
 
         val audioOptions = if (copiedAudio.isEmpty()) {
             "-A"
@@ -32,18 +49,27 @@ class MkvmergeArguments {
             "-s ${subtitles.joinToString(",") { "${it.streamIndex}" }}"
         }
 
-        var encodedTracks = 0
+        val videoOrder = if (sourceVideo == null) {
+            "0:0"
+        } else {
+            "$sourceFileIndex:$sourceVideo"
+        }
+
+        var encodedTrack = if (sourceVideo == null) {
+            1
+        } else {
+            0
+        }
         val audioOrder = audio.map {
             if (it.action == COPY) {
-                "1:${it.streamIndex}"
+                "$sourceFileIndex:${it.streamIndex}"
             } else {
-                encodedTracks++
-                "0:$encodedTracks"
+                "0:${encodedTrack++}"
             }
         }
-        val trackOrder = listOf("0:0") + audioOrder + subtitles.map { "1:${it.streamIndex}" }
+        val trackOrder = listOf(videoOrder) + audioOrder + subtitles.map { "$sourceFileIndex:${it.streamIndex}" }
 
-        return (listOf("-o", outputFile, intermediateFile, "-D", audioOptions) + trackOptions +
+        return (listOf("-o", outputFile) + listOfNotNull(intermediateFile) + videoOption + audioOptions + trackOptions +
             listOf(subtitleOptions, sourceFile, "--track-order", trackOrder.joinToString(",")))
             .joinToString(" ")
     }

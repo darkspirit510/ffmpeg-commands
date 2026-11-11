@@ -127,6 +127,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -198,6 +199,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:1 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -250,6 +252,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=jap"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -282,6 +285,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=jap"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -315,6 +319,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=deu,jap,jap,tur"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -342,6 +347,7 @@ class ParameterTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
