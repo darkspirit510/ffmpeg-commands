@@ -51,9 +51,10 @@ class RealWorldExamplesTest {
 
     @Test
     fun `handles real world example (1)`() {
-        val command = CommandCreator(FakeWrapper(example1)).doAction(arrayOf("somefile.mkv"))
+        val command = CommandCreator(FakeWrapper(example1), FakeCueReader(null)).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: no subtitle cues in the source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:9 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AC3)\" " +
@@ -116,6 +117,7 @@ class RealWorldExamplesTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (DTS-HD MA)\" " +
@@ -147,6 +149,7 @@ class RealWorldExamplesTest {
         ).doAction(arrayOf("somefile.mkv"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:1 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (AC3)\" " +
@@ -177,6 +180,7 @@ class RealWorldExamplesTest {
         ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=jpn"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:2 -c:a:0 copy -metadata:s:a:0 title=\"Stereo (MP3)\" " +
@@ -209,6 +213,7 @@ class RealWorldExamplesTest {
         ).doAction(arrayOf("somefile.mkv", "-additionalLanguages=jpn"))
 
         assertEquals(
+            "# Single pass, subtitle gaps not checked: not a Matroska source\n" +
             "ffmpeg -n -i somefile.mkv " +
                 "-map 0:v:0 -c:v:0 libsvtav1 -g 240 -keyint_min 240 -pix_fmt yuv420p10le -svtav1-params tune=0:enable-qm=1:enable-variance-boost=1 " +
                 "-map 0:a:0 -c:a:0 copy -metadata:s:a:0 title=\"Surround 5.1 (AAC)\" " +
